@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import type { PortfolioStats } from "@arb/shared";
 import { Card, CardContent } from "@/components/ui/card";
+import { InfoButton } from "@/components/InfoButton";
 import { pct, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { StringKey } from "@/lib/i18n";
 
 interface Props {
   portfolio: PortfolioStats | null;
@@ -23,6 +25,7 @@ interface Item {
   label: string;
   value: string;
   icon: LucideIcon;
+  info: string;
   tone?: Tone;
   sub?: string;
   title?: string;
@@ -40,6 +43,7 @@ export function StatCards({ portfolio }: Props) {
       label: "Realized P&L",
       value: usd(pnl),
       icon: Coins,
+      info: "pnl",
       tone: pnl > 0 ? "profit" : pnl < 0 ? "loss" : "default",
       sub: portfolio ? `${portfolio.totalTrades} fills` : undefined,
     },
@@ -47,6 +51,7 @@ export function StatCards({ portfolio }: Props) {
       label: "Equity · mark-to-market",
       value: usd(equity),
       icon: Wallet,
+      info: "equity",
       tone: equityDelta > 0 ? "profit" : equityDelta < 0 ? "loss" : "default",
       sub:
         portfolio && startEquity
@@ -57,17 +62,20 @@ export function StatCards({ portfolio }: Props) {
       label: "Trades executed",
       value: String(portfolio?.totalTrades ?? 0),
       icon: Activity,
+      info: "trades",
     },
     {
       label: "Opportunities",
       value: String(portfolio?.totalOpportunities ?? 0),
       icon: Gauge,
+      info: "opps",
       sub: `${portfolio?.actionableOpportunities ?? 0} actionable`,
     },
     {
       label: "Win rate",
       value: portfolio ? pct(portfolio.winRate, 1) : "—",
       icon: Percent,
+      info: "winrate",
     },
     {
       label: "Rebalance cost / trade",
@@ -75,6 +83,7 @@ export function StatCards({ portfolio }: Props) {
         ? usd(portfolio.rebalancing.amortizedCostPerTradeUsd)
         : "—",
       icon: Coins,
+      info: "rebalance",
       sub: portfolio ? `${portfolio.rebalancing.events} rebalances` : undefined,
       title: portfolio
         ? `${portfolio.rebalancing.events} on-chain rebalances · ${usd(
@@ -101,10 +110,14 @@ export function StatCards({ portfolio }: Props) {
             />
             <CardContent className="p-3 pl-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <Icon className="h-3 w-3 text-muted-foreground/60" />
                   {item.label}
                 </span>
-                <Icon className="h-3.5 w-3.5 text-muted-foreground/60" />
+                <InfoButton
+                  titleKey={`info.${item.info}.title` as StringKey}
+                  bodyKey={`info.${item.info}.body` as StringKey}
+                />
               </div>
               <div
                 className={cn(

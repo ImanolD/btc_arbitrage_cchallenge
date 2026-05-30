@@ -2,6 +2,7 @@ import type { SimulatedTrade } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { InfoButton } from "@/components/InfoButton";
 import {
   Table,
   TableBody,
@@ -20,7 +21,10 @@ export function TradeBlotter({ trades }: Props) {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
-        <CardTitle>Trade blotter — simulated fills</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Trade blotter — simulated fills</CardTitle>
+          <InfoButton titleKey="info.blotter.title" bodyKey="info.blotter.body" />
+        </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full">

@@ -4,6 +4,7 @@ import type { Opportunity } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { InfoButton } from "@/components/InfoButton";
 import {
   Table,
   TableBody,
@@ -55,6 +56,7 @@ export function OpportunityFeed({ opportunities }: Props) {
             <Badge variant={actionableCount > 0 ? "profit" : "muted"}>
               {actionableCount} exec
             </Badge>
+            <InfoButton titleKey="info.feed.title" bodyKey="info.feed.body" />
           </div>
         </div>
         {best && (

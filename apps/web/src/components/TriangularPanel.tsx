@@ -3,6 +3,7 @@ import type { EngineConfig, ExchangeId, TriangularOpportunity } from "@arb/share
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { InfoButton } from "@/components/InfoButton";
 import { pct, titleCase, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -45,12 +46,18 @@ export function TriangularPanel({ triangular, config }: Props) {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
-        <CardTitle>
-          Triangular arbitrage
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            {venues.length} venue{venues.length === 1 ? "" : "s"}
-          </span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>
+            Triangular arbitrage
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {venues.length} venue{venues.length === 1 ? "" : "s"}
+            </span>
+          </CardTitle>
+          <InfoButton
+            titleKey="info.triangular.title"
+            bodyKey="info.triangular.body"
+          />
+        </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
         <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-1 text-[10px] uppercase tracking-wider text-muted-foreground">

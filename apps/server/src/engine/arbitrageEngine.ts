@@ -67,7 +67,7 @@ export class ArbitrageEngine extends EventEmitter {
       walletExchanges,
       startingBalances.usdPerExchange,
       startingBalances.btcPerExchange,
-      this.referencePriceOr(60_000),
+      this.referencePrice, // 0 at boot → baseline deferred to first real price
     );
     this.simulator = new ExecutionSimulator(this.portfolio);
   }
@@ -98,6 +98,8 @@ export class ArbitrageEngine extends EventEmitter {
     // mark-to-market reference used for equity.
     if (book.exchange !== "demo") {
       this.referencePrice = (book.bestBid + book.bestAsk) / 2;
+      // Lock the equity baseline at the first genuine mark (no-op thereafter).
+      this.portfolio.ensureBaseline(this.referencePrice);
     }
 
     // Collect every candidate route touching the venue that just updated,

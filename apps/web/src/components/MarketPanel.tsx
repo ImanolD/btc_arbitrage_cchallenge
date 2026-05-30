@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { InfoButton } from "@/components/InfoButton";
 import { num, titleCase, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +49,10 @@ export function MarketPanel({ books }: Props) {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Market — best bid / ask</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Market — best bid / ask</CardTitle>
+          <InfoButton titleKey="info.market.title" bodyKey="info.market.body" />
+        </div>
       </CardHeader>
       <CardContent>
         <Table>

@@ -22,7 +22,13 @@ export class Portfolio {
   private readonly wallets = new Map<ExchangeId, WalletBalance>();
   /** Baseline BTC per venue; drift from this triggers rebalancing. */
   private readonly baselineBtc = new Map<ExchangeId, number>();
-  private readonly startingEquity: number;
+  /**
+   * Captured at the FIRST real mark price, not at boot. Benchmarking against a
+   * placeholder price would revalue the pre-positioned BTC inventory and show a
+   * phantom gain (e.g. +12% with zero trades) that has nothing to do with the
+   * arbitrage strategy. Null until the first live price arrives.
+   */
+  private startingEquity: number | null = null;
   private realizedPnl = 0;
   private totalTrades = 0;
   private totalOpportunities = 0;
@@ -42,7 +48,19 @@ export class Portfolio {
       this.wallets.set(ex, { exchange: ex, usd: startUsd, btc: startBtc });
       this.baselineBtc.set(ex, startBtc);
     }
-    this.startingEquity = this.equity(referencePrice);
+    // Only lock the baseline if a genuine price is already known at construction.
+    if (referencePrice > 0) this.startingEquity = this.equity(referencePrice);
+  }
+
+  /**
+   * Lock the starting-equity baseline at the first real mark price. No-op once
+   * set, so equity honestly starts at a 0% gain rather than reflecting the gap
+   * between a placeholder price and the live market.
+   */
+  ensureBaseline(referencePrice: number): void {
+    if (this.startingEquity === null && referencePrice > 0) {
+      this.startingEquity = this.equity(referencePrice);
+    }
   }
 
   /** Max base size affordable given USD on buy side and BTC on sell side. */
@@ -147,9 +165,12 @@ export class Portfolio {
   }
 
   stats(referencePrice: number): PortfolioStats {
+    const currentEquity = this.equity(referencePrice);
+    // Before the first real price, report equity as its own baseline (0% gain).
+    const baseline = this.startingEquity ?? currentEquity;
     return {
-      startingEquityUsd: round(this.startingEquity),
-      currentEquityUsd: round(this.equity(referencePrice)),
+      startingEquityUsd: round(baseline),
+      currentEquityUsd: round(currentEquity),
       realizedPnlUsd: round(this.realizedPnl),
       totalTrades: this.totalTrades,
       totalOpportunities: this.totalOpportunities,

@@ -1,6 +1,7 @@
 import type { ExchangeId, LatencyStats } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { InfoButton } from "@/components/InfoButton";
 import { ms, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +18,10 @@ export function LatencyPanel({ latency }: Props) {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Latency</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Latency</CardTitle>
+          <InfoButton titleKey="info.latency.title" bodyKey="info.latency.body" />
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <Metric

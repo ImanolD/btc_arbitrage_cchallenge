@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import type { PortfolioStats } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoButton } from "@/components/InfoButton";
 import { time, usd } from "@/lib/format";
 
 interface Props {
@@ -23,7 +24,13 @@ export function EquityChart({ portfolio }: Props) {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
-        <CardTitle>Equity curve (mark-to-market)</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Equity curve (mark-to-market)</CardTitle>
+          <InfoButton
+            titleKey="info.equitycurve.title"
+            bodyKey="info.equitycurve.body"
+          />
+        </div>
       </CardHeader>
       <CardContent className="flex-1">
         {data.length < 2 ? (

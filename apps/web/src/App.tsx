@@ -64,32 +64,38 @@ export default function App() {
           <StatCards portfolio={state.portfolio} />
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-3">
-          <div className="flex flex-col gap-3">
+        <div className="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-12">
+          {/* Left rail: live market + latency */}
+          <div className="flex flex-col gap-3 lg:col-span-3">
             <div id="tour-market">
               <MarketPanel books={state.books} />
             </div>
-            <div id="tour-latency">
+            <div id="tour-latency" className="min-h-[200px] flex-1">
               <LatencyPanel latency={state.latency} />
             </div>
           </div>
 
-          <div className="flex min-h-[360px] flex-col gap-3 lg:col-span-2">
-            <div id="tour-opps">
+          {/* Center: detection */}
+          <div className="flex min-h-[480px] flex-col gap-3 lg:col-span-5">
+            <div id="tour-opps" className="min-h-0 flex-1">
               <OpportunityFeed opportunities={state.opportunities} />
             </div>
-            <div id="tour-tri">
+            <div id="tour-tri" className="h-[220px]">
               <TriangularPanel triangular={state.triangular} config={state.config} />
             </div>
           </div>
-        </div>
 
-        <div id="tour-charts" className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div className="min-h-[280px]">
-            <EquityChart portfolio={state.portfolio} />
-          </div>
-          <div className="flex min-h-[280px] flex-col">
-            <TradeBlotter trades={state.trades} />
+          {/* Right rail: execution evidence (P&L + fills) */}
+          <div
+            id="tour-charts"
+            className="flex min-h-[480px] flex-col gap-3 lg:col-span-4"
+          >
+            <div className="h-[240px]">
+              <EquityChart portfolio={state.portfolio} />
+            </div>
+            <div className="min-h-0 flex-1">
+              <TradeBlotter trades={state.trades} />
+            </div>
           </div>
         </div>
       </main>
