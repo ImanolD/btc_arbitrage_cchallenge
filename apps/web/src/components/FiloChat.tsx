@@ -95,9 +95,15 @@ export function FiloChat({ messages, onAsk }: Props) {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
+    <>
       {open && (
-        <div className="mb-3 flex h-[min(70vh,560px)] w-[min(92vw,380px)] flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-card/95 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+        <>
+          {/* Tap-to-close backdrop (mobile bottom-sheet only) */}
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm sm:hidden"
+            onClick={() => setOpen(false)}
+          />
+          <div className="fixed inset-x-0 bottom-0 z-50 flex h-[85vh] flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-card/95 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] backdrop-blur-xl sm:inset-x-auto sm:bottom-[5.5rem] sm:right-4 sm:h-[min(70vh,560px)] sm:w-[380px] sm:rounded-2xl">
           {/* Header */}
           <div className="flex flex-none items-center gap-3 border-b border-white/[0.06] bg-gradient-to-r from-primary/15 to-transparent px-4 py-3">
             <div className="h-8 w-8 drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]">
@@ -168,11 +174,19 @@ export function FiloChat({ messages, onAsk }: Props) {
               <Send className="h-4 w-4" />
             </button>
           </form>
-        </div>
+          </div>
+        </>
       )}
 
-      {/* Nudge: gentle first-visit prompt to open the chat */}
-      {nudge && !open && (
+      {/* Corner: nudge + launcher (hidden behind the sheet on mobile when open) */}
+      <div
+        className={cn(
+          "fixed bottom-4 right-4 z-50 flex flex-col items-end",
+          open && "hidden sm:flex",
+        )}
+      >
+        {/* Nudge: gentle first-visit prompt to open the chat */}
+        {nudge && !open && (
         <div className="mb-3 flex max-w-[260px] items-start gap-2 rounded-2xl rounded-br-sm border border-white/[0.1] bg-card/95 px-3 py-2.5 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.6)] backdrop-blur-md">
           <button
             type="button"
@@ -212,8 +226,9 @@ export function FiloChat({ messages, onAsk }: Props) {
             {unread > 9 ? "9+" : unread}
           </span>
         )}
-      </button>
-    </div>
+        </button>
+      </div>
+    </>
   );
 }
 

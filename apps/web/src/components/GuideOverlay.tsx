@@ -23,17 +23,17 @@ export function GuideOverlay({ open, demoOn, onClose, onStartTour, onEnableDemo 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-md sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-white/[0.08] bg-card shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]"
+        className="relative flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] bg-card shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] sm:max-h-[92vh] sm:max-w-xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* gradient accent */}
-        <div className="h-1 w-full bg-gradient-to-r from-primary via-cyan-400 to-primary" />
+        <div className="h-1 w-full flex-none bg-gradient-to-r from-primary via-cyan-400 to-primary" />
 
         <button
           type="button"
@@ -44,7 +44,7 @@ export function GuideOverlay({ open, demoOn, onClose, onStartTour, onEnableDemo 
           <X className="h-5 w-5" />
         </button>
 
-        <div className="px-7 pb-6 pt-8">
+        <div className="min-h-0 flex-1 overflow-y-auto px-7 pb-6 pt-8">
           {/* Hero */}
           <div className="flex flex-col items-center text-center">
             <div className="h-14 w-14 drop-shadow-[0_0_24px_hsl(var(--primary)/0.55)]">
@@ -114,7 +114,7 @@ export function GuideOverlay({ open, demoOn, onClose, onStartTour, onEnableDemo 
         </div>
 
         {/* Resources */}
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-white/[0.06] bg-background/40 px-7 py-3.5">
+        <div className="flex flex-none flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-white/[0.06] bg-background/40 px-7 py-3.5">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
             {t("guide.resources")}
           </span>

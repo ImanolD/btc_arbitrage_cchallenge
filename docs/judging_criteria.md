@@ -29,7 +29,7 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 | 3 | **Solidez / robustez** | Órdenes parciales, *circuit breakers* (feed obsoleto, spread inverosímil, mínimo neto), reconexión con *backoff* | `engine/executionSimulator.ts`, `engine/riskManager.ts`, `exchanges/base.ts` |
 | 4 | **Estrategia / inteligencia** | 8 exchanges en 2 *pools* + **triangular** en 5 venues + **decisión por valor esperado (EV)** con P(supervivencia), **priorización por EV**, y modo de decisión **EV vs. spread conmutable en vivo** | `engine/arbitrageEngine.ts`, `engine/triangularEngine.ts`, `engine/expectedValue.ts` |
 | 5 | **Arquitectura / código** | Monorepo tipado de punta a punta (tipos compartidos), connectors enchufables, documentación | `packages/shared`, `exchanges/`, `docs/ARCHITECTURE.md` |
-| 6 | **Experiencia / UI** | Terminal de trading en vivo (React + shadcn/ui), KPIs, feed bruto-vs-neto, blotter, equity, latencia, triangular, modo demo, **panel de Ajustes en vivo** (EV/spread + parámetros + cadencia de Filo), **chat Filo** (IA grounded fuera del hot path) | `apps/web/src/*`, `apps/server/src/filo/*` |
+| 6 | **Experiencia / UI** | Terminal de trading en vivo (React + shadcn/ui), **responsive** (menú lateral + bottom-sheets en móvil), KPIs, feed bruto-vs-neto, blotter, equity, latencia, triangular, modo demo, **panel de Ajustes en vivo** (EV/spread + parámetros + cadencia de Filo), **chat Filo** (IA grounded fuera del hot path) | `apps/web/src/*`, `apps/server/src/filo/*` |
 
 ---
 
@@ -126,6 +126,7 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 - **Blotter** de operaciones, **curva de equity**, **panel de latencia** y **panel triangular** multi-venue.
 - **Modo demo/replay** claramente etiquetado para mostrar la ruta de ejecución completa.
 - **Filo**, copiloto conversacional 🐾: narra lo relevante en vivo y responde preguntas (P&L, latencia, "por qué descartaste") con datos reales del motor. Determinista por defecto + capa opcional con Claude estrictamente *grounded*; la IA va **fuera** del hot path y nunca decide trades (`apps/server/src/filo/*`).
+- **Responsive (móvil · tablet · escritorio):** el layout se refluye, el header colapsa en un **menú lateral**, los modales se vuelven **bottom-sheets** y el chat de Filo pasa a **hoja a pantalla completa** en teléfono. Puedes abrir el sitio desde el celular durante la evaluación.
 
 ---
 

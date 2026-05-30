@@ -42,7 +42,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background">
       <GuideOverlay
         open={guideOpen}
         demoOn={state.config?.demoMode ?? false}
