@@ -53,6 +53,9 @@ const STRINGS = {
     "tour.filo.title": "Filo, tu copiloto 🐾",
     "tour.filo.body":
       "Abre el chat de Filo: te narra lo relevante en vivo (mejor oportunidad, ejecuciones, por qué descartó un cruce) y responde tus preguntas — P&L, latencia, oportunidades — siempre con datos reales del motor. La IA vive fuera del hot path, nunca decide los trades.",
+    "tour.settings.title": "Ajustes: la tesis, en vivo",
+    "tour.settings.body":
+      "Conmuta entre decisión por valor esperado (EV) y por umbral de spread, y míralo cambiar el feed al instante: en modo spread empiezan a dispararse cruces frágiles que EV descartaba. Aquí también afinas los parámetros del modelo y la cadencia de Filo.",
     "tour.demo.title": "Enciéndelo y míralo ejecutar",
     "tour.demo.body":
       "Activa el modo demo para inyectar dislocaciones sintéticas (claramente etiquetadas) y ver el camino completo: detección → decisión por EV → ejecución → P&L.",
@@ -186,6 +189,9 @@ const STRINGS = {
     "tour.filo.title": "Filo, your copilot 🐾",
     "tour.filo.body":
       "Open Filo's chat: it narrates what matters live (best opportunity, executions, why it skipped a cross) and answers your questions — P&L, latency, opportunities — always grounded in real engine data. The AI lives outside the hot path; it never decides trades.",
+    "tour.settings.title": "Settings: the thesis, live",
+    "tour.settings.body":
+      "Flip between expected-value (EV) and spread-threshold decisioning and watch the feed change instantly: in spread mode, fragile crosses that EV rejected start firing. This is also where you tune the model parameters and Filo's cadence.",
     "tour.demo.title": "Turn it on and watch it execute",
     "tour.demo.body":
       "Enable demo mode to inject clearly-labeled synthetic dislocations and see the full path: detection → EV decision → execution → P&L.",
