@@ -57,6 +57,11 @@ export const engineConfig: EngineConfig = {
     pairs: TRIANGULAR_PAIRS,
     notionalUsd: TRIANGULAR_NOTIONAL_USD,
   })),
+  ev: {
+    tauMs: num("EV_TAU_MS", 400),
+    adverseBps: num("EV_ADVERSE_BPS", 5),
+    minEvUsd: num("EV_MIN_USD", 0),
+  },
 };
 
 export const startingBalances = {

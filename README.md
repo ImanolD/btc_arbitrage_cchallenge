@@ -10,7 +10,8 @@ Detección de **arbitraje de Bitcoin entre exchanges** en tiempo real y **ejecuc
 - **La ganancia neta se calcula recorriendo el book.** Una operación que se ve bien en el *top-of-book* a menudo se vuelve negativa dos niveles más abajo. Nunca asumimos que el mejor precio llena todo el tamaño.
 - **Modelo de inventario, no transferencias por operación.** Las mesas de arbitraje reales pre-posicionan capital en ambos venues — la liquidación on-chain de BTC (~10–60 min) mataría toda oportunidad. Los balances se desvían con el tiempo (un venue acumula BTC, el otro USD), y mostramos esa desviación en lugar de esconderla tras transferencias instantáneas ficticias.
 - **Costo de retiro amortizado, no por operación.** El *withdrawal fee* es un costo de **rebalanceo**: solo se cobra cuando la desviación de inventario supera un umbral y obliga a una transferencia on-chain. Lo amortizamos entre las operaciones y lo mostramos como "costo de rebalanceo / operación" — restarlo en cada trade descartaría oportunidades reales.
-- **Priorización por ganancia neta.** En cada tick se ejecutan las oportunidades accionables de mayor a menor neto (no "la primera que aparece"), asignando el capital a la mejor primero; el dashboard resalta la "mejor ejecutable ahora".
+- **Decisión por valor esperado (EV), no por umbral.** No disparamos cuando "spread > X": estimamos la **probabilidad de que el cruce sobreviva** nuestra ventana de latencia (heurística transparente sobre decaimiento por latencia, magnitud del *edge* e *imbalance* del book) y ejecutamos solo si `EV = P(supervivencia) × neto − (1−P) × costo_adverso > 0`. El dashboard muestra P(supervivencia) y EV en vivo.
+- **Priorización por valor esperado.** En cada tick se ejecutan las oportunidades accionables de mayor a menor EV (no "la primera que aparece"), asignando el capital a la mejor primero; el dashboard resalta la "mejor ejecutable ahora".
 - **Compuerta de riesgo antes de ejecutar.** Guarda de feed obsoleto, guarda de spread inverosímil (*glitch* de datos) y umbral mínimo de ganancia neta median entre "detectado" y "ejecutado".
 
 ## Arquitectura
@@ -132,6 +133,9 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 | `MAX_SANE_SPREAD_PCT` | `0.05` | Rechaza spreads más anchos como datos erróneos |
 | `MAX_QUOTE_AGE_MS` | `2000` | Guarda de feed obsoleto |
 | `REBALANCE_THRESHOLD_BTC` | `0.5` | Desviación de inventario que dispara un rebalanceo (cobra withdrawal fee amortizado) |
+| `EV_TAU_MS` | `400` | Constante de decaimiento por latencia del modelo de supervivencia |
+| `EV_ADVERSE_BPS` | `5` | Costo de selección adversa (bps) si el edge colapsa |
+| `EV_MIN_USD` | `0` | Valor esperado mínimo para ejecutar |
 | `DEMO_MODE` | `false` | Arrancar con el inyector demo/replay encendido |
 
 ## Despliegue

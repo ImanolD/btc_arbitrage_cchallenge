@@ -13,7 +13,7 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 1. **(~30 s) Datos en vivo.** Abre el dashboard. Mira el **panel de mercado**: 8 exchanges transmitiendo bid/ask por WebSocket en tiempo real, agrupados por moneda de cotización (USDT / USD). El **panel de latencia** muestra la latencia de procesamiento p50/p95/p99 — el número que controlamos.
 2. **(~45 s) Bruto vs neto.** Mira el **feed de oportunidades**. Verás cruces marcados **SKIP** con su motivo: el cruce existía en bruto pero **no sobrevive las comisiones**. Esto demuestra que el cálculo neto es correcto y que no "imprimimos dinero" falso. Es esperable que el blotter en vivo esté tranquilo: el arbitraje limpio entre venues importantes es raro.
 3. **(~60 s) Ruta de ejecución completa (modo demo).** Activa el **modo demo** (botón en la barra superior; banner permanente, venue `demo` claramente etiquetado). Inyecta dislocaciones realistas que superan las comisiones, así que verás: oportunidades **EXEC**, llenados parciales en el **blotter**, la **curva de equity** moverse, los **balances por wallet** desviarse, y — tras suficiente desviación — un **rebalanceo** que cobra el withdrawal fee amortizado (KPI "costo de rebalanceo / operación").
-4. **(~30 s) Priorización + triangular.** Nota la oportunidad **"mejor ejecutable ahora"** resaltada (ejecutamos por mayor ganancia neta, no la primera). Abre el **panel triangular**: ciclos `USDT→BTC→ETH→USDT` en 5 venues, ambas direcciones, netos de tres fees.
+4. **(~30 s) Valor esperado + triangular.** En el feed, las columnas **P(surv)** y **EV** muestran que decidimos por **valor esperado**, no por umbral: un cruce con cotización vieja baja su supervivencia y su EV se vuelve negativo → SKIP. La oportunidad **"mejor ejecutable ahora"** se resalta por mayor EV. Abre el **panel triangular**: ciclos `USDT→BTC→ETH→USDT` en 5 venues, ambas direcciones, netos de tres fees.
 5. **(~15 s) Código.** Todo está tipado de punta a punta (`packages/shared`) y los feeds son **públicos y sin API keys** — el repo corre tal cual. Ver la tabla de abajo para el mapeo criterio↔archivo.
 
 ---
@@ -25,7 +25,7 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 | 1 | **Velocidad / latencia** | WebSockets en 8 venues, motor dirigido por eventos O(N)/tick, latencia de procesamiento medida p50/p95/p99 | `engine/arbitrageEngine.ts`, `engine/latencyTracker.ts`, `exchanges/*` |
 | 2 | **Precisión de rentabilidad neta** | *Depth-walk* nivel por nivel (slippage real), taker fees por trade, withdrawal fees **amortizados** por rebalanceo, agrupación por moneda de cotización | `engine/profit.ts`, `config.ts`, `engine/portfolio.ts` |
 | 3 | **Solidez / robustez** | Órdenes parciales, *circuit breakers* (feed obsoleto, spread inverosímil, mínimo neto), reconexión con *backoff* | `engine/executionSimulator.ts`, `engine/riskManager.ts`, `exchanges/base.ts` |
-| 4 | **Estrategia / inteligencia** | 8 exchanges en 2 *pools* de cotización + **arbitraje triangular** en 5 venues, **priorización** por ganancia neta | `engine/arbitrageEngine.ts`, `engine/triangularEngine.ts` |
+| 4 | **Estrategia / inteligencia** | 8 exchanges en 2 *pools* + **triangular** en 5 venues + **decisión por valor esperado (EV)** con P(supervivencia), **priorización por EV** | `engine/arbitrageEngine.ts`, `engine/triangularEngine.ts`, `engine/expectedValue.ts` |
 | 5 | **Arquitectura / código** | Monorepo tipado de punta a punta (tipos compartidos), connectors enchufables, documentación | `packages/shared`, `exchanges/`, `docs/ARCHITECTURE.md` |
 | 6 | **Experiencia / UI** | Terminal de trading en vivo (React + shadcn/ui), KPIs, feed bruto-vs-neto, blotter, equity, latencia, triangular, modo demo | `apps/web/src/*` |
 
@@ -89,9 +89,10 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 
 - **8 exchanges en paralelo**, en 2 *pools* de cotización (USDT: Binance, Kraken, OKX, Bybit, KuCoin, Gate.io · USD: Bitstamp, Bitfinex). Todos con feeds **públicos y sin API keys**.
 - **Arbitraje triangular** independiente en 5 venues sobre `BTC/USDT · ETH/BTC · ETH/USDT`, evaluando ambas direcciones del ciclo netas de tres taker fees (`engine/triangularEngine.ts`). Es intrínsecamente de un solo exchange (las tres patas se ejecutan en el mismo libro), por eso corre por venue.
-- **Priorización por ganancia neta:** en cada tick recolectamos todas las rutas candidatas y **ejecutamos las accionables de mayor a menor neto**, asignando el capital escaso a la mejor primero — no "la primera que aparece". El dashboard resalta la "mejor ejecutable ahora" (`arbitrageEngine.ts`).
+- **Decisión por valor esperado (EV), no por umbral:** estimamos `P(supervivencia)` del cruce ante la latencia (heurística transparente: decaimiento por latencia × magnitud del edge × *imbalance* del book) y ejecutamos solo si `EV = P × neto − (1−P) × costo_adverso > 0`. Mostramos P(supervivencia) y EV por oportunidad (`engine/expectedValue.ts`).
+- **Priorización por EV:** en cada tick recolectamos todas las rutas candidatas y **ejecutamos las accionables de mayor a menor EV**, asignando el capital escaso a la mejor primero — no "la primera que aparece". El dashboard resalta la "mejor ejecutable ahora" (`arbitrageEngine.ts`).
 
-**Diferenciador:** combinamos arbitraje cross-exchange multi-venue **y** triangular multi-venue, con priorización explícita.
+**Diferenciador:** combinamos cross-exchange multi-venue **y** triangular multi-venue, y decidimos por **valor esperado** (anticipatorio) en vez de un umbral reactivo — con P(supervivencia) y EV visibles en vivo.
 
 ---
 
@@ -146,6 +147,12 @@ Porque un book BTC/USD y uno BTC/USDT difieren por el *peg* de USDT. Cruzarlos s
 
 **¿Por qué el arbitraje triangular corre por venue y no entre exchanges?**
 Porque las tres patas del ciclo deben ejecutarse en el **mismo libro** para ser atómicas; mezclar precios de exchanges distintos no sería ejecutable. Por eso instanciamos un motor triangular independiente por venue.
+
+**¿Qué es la "probabilidad de supervivencia" y el valor esperado? ¿Es ML real?**
+Es una **heurística transparente**, no una caja negra: `supervivencia ≈ exp(−edad/τ) · confianza_edge · soporte_liquidez`, y `EV = supervivencia · neto − (1−supervivencia) · costo_adverso`. Usa features de microestructura reales (latencia, magnitud del edge, *order-book imbalance*). La presentamos honestamente como heurística interpretable — cada término es explicable — precisamente porque un modelo de ML entrenado de verdad requeriría datos etiquetados y calibración que no fingimos tener. El punto es la **decisión por valor esperado** en vez de por umbral.
+
+**¿Usan IA? ¿Por qué no un LLM decidiendo los trades?**
+Postura explícita: **heurística/ML clásico para el alfa, nunca un LLM en el hot path.** El modelo de EV es ligero y determinista y vive en la ruta caliente. Un LLM en el loop de trading sería lento, no determinista y básicamente teatro — el jurado técnico lo notaría. La capa natural para un LLM sería *fuera* del hot path (narrar por qué se tomó o descartó cada trade); que entendamos esa distinción es, en sí, una señal de madurez.
 
 **¿Por qué corren el servidor en Node y no en Bun?**
 Usamos Bun para *workspaces* y tareas, pero el **proceso del servidor corre en Node**: bajo el runtime actual de Bun los *broadcasts* de Socket.IO resultaron poco confiables. Es una decisión pragmática, documentada en `ARCHITECTURE.md`.

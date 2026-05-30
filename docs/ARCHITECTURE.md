@@ -95,13 +95,33 @@ La precisión "neta de todo" es lo que distingue a un bot serio de uno ingenuo. 
 
 Cada exchange tiene su *taker fee* publicada (`feeModels`). Las comisiones se aplican sobre el costo de compra y el ingreso de venta.
 
-### 5.3 Modelo de inventario vs. transferencia (decisión clave)
+### 5.3 Decisión por valor esperado (EV)
+
+La mayoría de los bots disparan con una regla de umbral: "si el spread neto > X, ejecuta". Nosotros disparamos por **valor esperado**, que es como razona una mesa real: un *edge* delgado visto sobre una cotización vieja probablemente se cierre antes de que ejecutemos.
+
+`expectedValue.ts` estima primero la **probabilidad de supervivencia** del cruce dentro de nuestra ventana de latencia, con una **heurística transparente** (no una caja negra de ML) sobre features de microestructura reales:
+
+```
+supervivencia ≈ decay(edad) · confianza_edge(neto%) · soporte_liquidez(imbalance)
+EV            = supervivencia · neto − (1 − supervivencia) · costo_adverso
+```
+
+- **decay(edad):** `exp(−edad / τ)` — cotizaciones frescas sobreviven mejor (τ por defecto 400 ms; edad = latencia de feed + procesamiento).
+- **confianza_edge:** un *edge* más grande es menos probable que sea ruido que revierte.
+- **soporte_liquidez:** *imbalance* del order book (profundidad de soporte en ambas patas) — más profundidad hace el cruce menos efímero. El *order-book imbalance* es uno de los predictores de microestructura mejor documentados.
+- **costo_adverso:** pérdida esperada si quedamos llenos en una pata y debemos deshacer la otra a peor precio (`EV_ADVERSE_BPS` del nominal).
+
+Una oportunidad debe pasar la compuerta de riesgo **y** tener `EV > EV_MIN_USD`. La ejecución se **prioriza por EV descendente**. El dashboard muestra **P(supervivencia)** y **EV** por oportunidad — convirtiendo la decisión en algo legible y defendible.
+
+> **IA — postura explícita:** *ML clásico/heurística para el alfa, nunca un LLM en el hot path.* El modelo de EV es ligero, determinista y vive en la ruta caliente; cualquier capa de lenguaje natural (explicar decisiones) iría **fuera** del hot path. El reto premia esta madurez de criterio.
+
+### 5.4 Modelo de inventario vs. transferencia (decisión clave)
 
 El arbitraje real **no** compra en el exchange A y transfiere BTC on-chain al exchange B en cada operación: la liquidación on-chain de Bitcoin tarda ~10–60 min y mataría cualquier oportunidad. Las mesas reales **pre-posicionan capital en ambos venues** y rebalancean ocasionalmente.
 
 Por eso el sistema usa el **modelo de inventario**: comprar en A debita USD de A y acredita BTC en A; vender en B debita BTC de B y acredita USD en B. Los balances **se desvían con el tiempo** (A acumula BTC, B acumula USD), y el sistema **muestra esa desviación** en lugar de esconderla tras la ficción de transferencias instantáneas.
 
-### 5.4 Costo de retiro: amortizado, no por operación
+### 5.5 Costo de retiro: amortizado, no por operación
 
 El error clásico es restar el *withdrawal fee* en **cada** operación; eso descartaría oportunidades reales, porque bajo el modelo de inventario no se mueve BTC on-chain en cada trade. El retiro es un **costo de rebalanceo**: solo se paga cuando la desviación de inventario de un venue supera un umbral (`REBALANCE_THRESHOLD_BTC`) y obliga a una transferencia on-chain hacia el venue más drenado.
 

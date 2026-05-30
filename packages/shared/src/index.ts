@@ -73,6 +73,17 @@ export interface Opportunity {
   netProfit: number;
   /** Net profit as a fraction of notional. */
   netProfitPct: number;
+  /**
+   * Estimated probability (0..1) that the favorable cross survives our latency
+   * window long enough to execute. Transparent heuristic — see expectedValue.ts.
+   */
+  survivalProb: number;
+  /**
+   * Expected value (quote currency): survivalProb × netProfit minus the
+   * probability-weighted adverse-selection cost if the edge collapses. The
+   * engine fires on EV > 0, not merely on a positive net spread.
+   */
+  expectedValueUsd: number;
   /** Whether the engine decided this opportunity is worth executing. */
   actionable: boolean;
   /** Human-readable reason when not actionable (e.g. "below min profit"). */
@@ -213,6 +224,18 @@ export interface EngineConfig {
   demoMode: boolean;
   /** Venues on which triangular arbitrage is monitored (empty if disabled). */
   triangular: TriangularConfig[];
+  /** Expected-value model parameters (echoed for dashboard transparency). */
+  ev: EvConfig;
+}
+
+/** Parameters of the transparent expected-value / survival-probability model. */
+export interface EvConfig {
+  /** Latency decay constant (ms): survival ≈ exp(−age / tauMs). */
+  tauMs: number;
+  /** Adverse-selection cost (bps of notional) charged if the edge collapses. */
+  adverseBps: number;
+  /** Minimum expected value (quote currency) required to fire. */
+  minEvUsd: number;
 }
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";

@@ -12,6 +12,7 @@ import type {
 import { feeModels, startingBalances } from "../config.js";
 import { OrderBookStore } from "../marketData/orderBookStore.js";
 import { computeArbitrage, topOfBookArb } from "./profit.js";
+import { computeEv } from "./expectedValue.js";
 import { RiskManager } from "./riskManager.js";
 import { Portfolio } from "./portfolio.js";
 import { ExecutionSimulator } from "./executionSimulator.js";
@@ -117,11 +118,12 @@ export class ArbitrageEngine extends EventEmitter {
       this.emit("opportunity", c.opp);
     }
 
-    // Prioritize: execute actionable routes by descending net profit.
+    // Prioritize: execute actionable routes by descending expected value, so
+    // scarce capital backs the highest-EV opportunity first (not the first seen).
     const now = Date.now();
     const actionable = candidates
       .filter((c) => c.opp.actionable)
-      .sort((x, y) => y.opp.netProfit - x.opp.netProfit);
+      .sort((x, y) => y.opp.expectedValueUsd - x.opp.expectedValueUsd);
     for (const c of actionable) {
       if (!this.cooldownReady(c.buyBook.exchange, c.sellBook.exchange, now)) continue;
       const trade = this.simulator.execute(c.opp, c.buyBook, c.sellBook);
@@ -183,6 +185,36 @@ export class ArbitrageEngine extends EventEmitter {
     const processingMs = now - trigger.receivedAt;
     this.latency.recordProcessing(processingMs);
 
+    const netProfitPct = calc.cost > 0 ? calc.netProfit / calc.cost : 0;
+    const feedMs =
+      trigger.exchangeTime != null
+        ? Math.max(0, trigger.receivedAt - trigger.exchangeTime)
+        : null;
+
+    // Expected-value layer: estimate the probability the cross survives our
+    // latency window, then require EV > 0 — not just a positive net spread.
+    const ev = computeEv(
+      {
+        netProfit: calc.netProfit,
+        netProfitPct,
+        cost: calc.cost,
+        ageMs: processingMs + (feedMs ?? 0),
+        buyAsks: buyBook.asks,
+        buyBids: buyBook.bids,
+        sellAsks: sellBook.asks,
+        sellBids: sellBook.bids,
+      },
+      this.config.ev,
+    );
+
+    // An opportunity must clear the risk gate AND have positive expected value.
+    let actionable = decision.ok;
+    let reason = decision.reason;
+    if (actionable && ev.expectedValueUsd <= this.config.ev.minEvUsd) {
+      actionable = false;
+      reason = `EV no positivo (supervivencia ${(ev.survivalProb * 100).toFixed(0)}%)`;
+    }
+
     const opp: Opportunity = {
       id: randomUUID(),
       symbol: this.config.symbol,
@@ -193,14 +225,13 @@ export class ArbitrageEngine extends EventEmitter {
       size: round8(calc.size),
       grossProfit: round2(calc.grossProfit),
       netProfit: round2(calc.netProfit),
-      netProfitPct: calc.cost > 0 ? calc.netProfit / calc.cost : 0,
-      actionable: decision.ok,
-      reason: decision.reason,
+      netProfitPct,
+      survivalProb: ev.survivalProb,
+      expectedValueUsd: round2(ev.expectedValueUsd),
+      actionable,
+      reason,
       latency: {
-        feedMs:
-          trigger.exchangeTime != null
-            ? Math.max(0, trigger.receivedAt - trigger.exchangeTime)
-            : null,
+        feedMs,
         processingMs: round3(processingMs),
       },
       detectedAt: now,

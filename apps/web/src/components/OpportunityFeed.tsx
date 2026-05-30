@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ms, num, time, titleCase, usd } from "@/lib/format";
+import { ms, num, pct, time, titleCase, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -40,8 +40,11 @@ export function OpportunityFeed({ opportunities }: Props) {
               Best executable now · {titleCase(best.buyExchange)} →{" "}
               {titleCase(best.sellExchange)}
             </span>
-            <span className="text-sm font-bold tabular-nums text-profit">
-              {usd(best.netProfit)}
+            <span className="flex items-center gap-3 text-sm font-bold tabular-nums text-profit">
+              <span className="text-[10px] font-normal uppercase tracking-wider text-muted-foreground">
+                P(surv) {pct(best.survivalProb, 0)} · EV
+              </span>
+              {usd(best.expectedValueUsd)}
             </span>
           </div>
         )}
@@ -56,6 +59,8 @@ export function OpportunityFeed({ opportunities }: Props) {
                 <TableHead className="text-right">Size</TableHead>
                 <TableHead className="text-right">Gross</TableHead>
                 <TableHead className="text-right">Net</TableHead>
+                <TableHead className="text-right">P(surv)</TableHead>
+                <TableHead className="text-right">EV</TableHead>
                 <TableHead className="text-right">Proc.</TableHead>
                 <TableHead className="text-right">Verdict</TableHead>
               </TableRow>
@@ -63,7 +68,7 @@ export function OpportunityFeed({ opportunities }: Props) {
             <TableBody>
               {opportunities.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
                     No crosses detected yet. Real BTC arbs are rare — that's expected.
                   </TableCell>
                 </TableRow>
@@ -85,6 +90,17 @@ export function OpportunityFeed({ opportunities }: Props) {
                     )}
                   >
                     {usd(opp.netProfit)}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground tabular-nums">
+                    {pct(opp.survivalProb, 0)}
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      "text-right font-semibold tabular-nums",
+                      opp.expectedValueUsd > 0 ? "text-profit" : "text-loss",
+                    )}
+                  >
+                    {usd(opp.expectedValueUsd)}
                   </TableCell>
                   <TableCell className="text-right text-primary">
                     {ms(opp.latency.processingMs)}
