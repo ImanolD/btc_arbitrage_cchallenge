@@ -1,126 +1,134 @@
 # BTC Arbitrage Terminal
 
-Real-time Bitcoin **cross-exchange arbitrage** detection and **simulated execution**, built for the BTC arbitrage challenge. The system streams live order books from multiple exchanges over WebSockets, detects price divergences the instant they occur, computes profitability **net of fees and depth-walked slippage**, applies risk controls, and simulates execution with partial fills and per-wallet balance tracking — all visualised in a live trading terminal.
+Detección de **arbitraje de Bitcoin entre exchanges** en tiempo real y **ejecución simulada**, construido para el reto de arbitraje de BTC. El sistema transmite order books en vivo de múltiples exchanges vía WebSocket, detecta divergencias de precio en el instante en que ocurren, calcula la rentabilidad **neta de comisiones y slippage por profundidad**, aplica controles de riesgo y simula la ejecución con llenados parciales y seguimiento de balances por wallet — todo visualizado en una terminal de trading en vivo.
 
-## Why this design
+> El código y los comentarios están en inglés (estándar de ingeniería); la documentación está en español por tratarse de una competencia en México. Ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para el detalle técnico.
 
-- **Event-driven, not polling.** The engine re-evaluates on every order-book tick and only re-checks the venue pairs touched by that update — O(N) per update, not O(N²).
-- **Net profit is computed by walking the book.** A trade that looks good at top-of-book often turns negative two levels deep. We never assume the best price fills the whole size.
-- **Inventory model, not per-trade transfers.** Real arbitrage desks pre-position capital on both venues — on-chain BTC settlement (~10–60 min) would kill every opportunity. Balances drift over time (one venue accumulates BTC, the other USD), and we surface that drift rather than hiding it behind a fiction of instant transfers.
-- **Risk gate before execution.** Stale-feed guard, implausible-spread (data-glitch) guard, and a minimum-net-profit threshold sit between "detected" and "executed".
+## Por qué este diseño
 
-## Architecture
+- **Dirigido por eventos, no por polling.** El motor reevalúa en cada *tick* del order book y solo reverifica los pares de venues afectados por esa actualización — O(N) por actualización, no O(N²).
+- **La ganancia neta se calcula recorriendo el book.** Una operación que se ve bien en el *top-of-book* a menudo se vuelve negativa dos niveles más abajo. Nunca asumimos que el mejor precio llena todo el tamaño.
+- **Modelo de inventario, no transferencias por operación.** Las mesas de arbitraje reales pre-posicionan capital en ambos venues — la liquidación on-chain de BTC (~10–60 min) mataría toda oportunidad. Los balances se desvían con el tiempo (un venue acumula BTC, el otro USD), y mostramos esa desviación en lugar de esconderla tras transferencias instantáneas ficticias.
+- **Compuerta de riesgo antes de ejecutar.** Guarda de feed obsoleto, guarda de spread inverosímil (*glitch* de datos) y umbral mínimo de ganancia neta median entre "detectado" y "ejecutado".
+
+## Arquitectura
 
 ```
-Exchange WS feeds (Binance, Kraken, OKX, Bybit)
-        │  normalized TopOfBook (bids/asks ladder + timestamps)
+Feeds WS (Binance, Kraken, OKX, Bybit)
+        │  TopOfBook normalizado (escalera bids/asks + timestamps)
         ▼
-  OrderBookStore (in-memory, per exchange)
+  OrderBookStore (en memoria, por exchange)
         ▼
-  ArbitrageEngine  ── on every tick ──▶  net-profit (depth walk) ──▶ RiskManager
-        │                                                              │
-        ├──▶ ExecutionSimulator (partial fills, wallet balances)  ◀────┘
-        ├──▶ Portfolio (P&L, equity curve)
-        └──▶ LatencyTracker (processing p50/p95/p99, feed age)
+  ArbitrageEngine  ── en cada tick ──▶  net-profit (depth walk) ──▶ RiskManager
+        │                                                             │
+        ├──▶ ExecutionSimulator (llenados parciales, balances)  ◀─────┘
+        ├──▶ Portfolio (P&L, curva de equity)
+        └──▶ LatencyTracker (procesamiento p50/p95/p99, antigüedad de feeds)
         │  Socket.IO
         ▼
-  Web dashboard (Vite + React + shadcn/ui): live books, opportunity
-  feed (gross vs net), trade blotter, equity curve, latency panel
+  Dashboard web (Vite + React + shadcn/ui): books en vivo, feed de
+  oportunidades (bruto vs neto), blotter de operaciones, curva de equity,
+  panel de latencia y arbitraje triangular.
 ```
 
-### Monorepo layout
+### Estructura del monorepo
 
 ```
 btc_arbitrage_cchallenge/
-├── packages/shared/   # End-to-end types — the Socket.IO data contract,
-│                      # imported by BOTH server and web so they can't drift.
-├── apps/server/       # The bot: connectors, engine, simulator, Socket.IO.
-└── apps/web/          # The dashboard: Vite + React + Tailwind + shadcn/ui.
+├── packages/shared/   # Tipos de punta a punta = el contrato de datos de
+│                      # Socket.IO, importado por AMBAS apps para no desincronizar.
+├── apps/server/       # El bot: connectors, motor, simulador, Socket.IO.
+└── apps/web/          # El dashboard: Vite + React + Tailwind + shadcn/ui.
 ```
 
-## Tech stack
+## Stack tecnológico
 
-- **Server:** Node + TypeScript, `ws` (exchange feeds), `socket.io` (push to UI), Express (health). Run with `tsx` in dev and plain Node in prod. (We intentionally do **not** run the server on Bun: `socket.io` broadcasts are unreliable under the current Bun runtime — see below.)
+- **Servidor:** Node + TypeScript, `ws` (feeds de exchange), `socket.io` (push al UI), Express (health). Corre con `tsx` en desarrollo y Node puro en producción. (Intencionalmente **no** corremos el servidor en Bun: los broadcasts de `socket.io` son poco confiables bajo el runtime actual de Bun — ver abajo.)
 - **Web:** Vite 6, React 18, TypeScript, TailwindCSS, **shadcn/ui** (Radix), Recharts.
-- **Tooling:** Bun workspaces (install + task running); the server process itself executes on Node.
+- **Tooling:** Bun workspaces (instalación + ejecución de tareas); el proceso del servidor se ejecuta en Node.
 
 ### Connectors
 
-| Exchange | Channel | Notes |
-|----------|---------|-------|
-| Binance | `@depth20@100ms` | partial-book snapshot stream |
-| Kraken | `book` v2 | snapshot + deltas, local book maintained |
-| OKX | `books5` | top-5 snapshot per change |
-| Bybit | `orderbook.50` | snapshot + deltas, JSON keepalive ping |
+| Exchange | Canal | Notas |
+|----------|-------|-------|
+| Binance | `@depth20@100ms` | snapshot parcial del book |
+| Kraken | `book` v2 | snapshot + deltas, book local mantenido |
+| OKX | `books5` | snapshot del top-5 por cambio |
+| Bybit | `orderbook.50` | snapshot + deltas, *ping* JSON de keepalive |
 
-Adding a venue is a single new file implementing `BaseConnector` plus one registry entry.
+Agregar un venue es un solo archivo nuevo que implementa `BaseConnector` más una entrada en el registro.
 
-## Latency: how it's measured
+## Latencia: cómo se mide
 
-Every detection timestamps three points:
+Cada detección marca tres instantes:
 
-| Symbol | Meaning |
-|--------|---------|
-| `t0` | exchange event time (when available in the payload) |
-| `t1` | local WebSocket receive time |
-| `t2` | opportunity-detected time |
+| Símbolo | Significado |
+|---------|-------------|
+| `t0` | tiempo del evento del exchange (cuando está disponible) |
+| `t1` | tiempo de recepción local del WebSocket |
+| `t2` | tiempo de detección de la oportunidad |
 
-- **Processing latency** = `t2 − t1` — purely our code, clock-skew-independent. This is the number we own and optimise; shown live as p50 / p95 / p99.
-- **Feed latency** = `t1 − t0` — network + exchange, indicative.
+- **Latencia de procesamiento** = `t2 − t1` — puramente nuestro código, independiente del desfase de relojes. Es el número que controlamos y optimizamos; se muestra en vivo como p50 / p95 / p99.
+- **Latencia de feed** = `t1 − t0` — red + exchange, indicativa.
 
-Optimisations on the hot path: flat in-memory state, no blocking work in the message handler, aggregate stats pushed on a fixed cadence (off the hot path), and the browser buffers high-frequency book updates and flushes on `requestAnimationFrame`.
+Optimizaciones en la ruta caliente: estado plano en memoria, nada bloqueante en el handler de mensajes, estadísticas agregadas empujadas en cadencia fija (fuera de la ruta caliente), y el navegador almacena en buffer los books de alta frecuencia y los vuelca en `requestAnimationFrame`.
 
-## Running locally
+## Arbitraje triangular
 
-Requires [Bun](https://bun.sh) (or Node ≥ 20).
+Además del arbitraje cross-exchange, el sistema monitorea **arbitraje triangular** en un solo venue (Binance) sobre `BTC/USDT · ETH/BTC · ETH/USDT`, evaluando ambas direcciones del ciclo (`USDT → BTC → ETH → USDT` y su inverso) netas de tres *taker fees*.
+
+## Modo demo / replay
+
+Los arbitrajes netos positivos reales entre venues importantes son prácticamente inexistentes, así que un demo puramente en vivo muestra un blotter (honestamente) vacío. Para demostrar la ruta de ejecución completa — llenados parciales, desviación de balances, P&L realizado, curva de equity — existe un **modo demo claramente etiquetado**:
+
+- Un venue sintético `demo` cotiza alrededor del precio de referencia en vivo e inyecta dislocaciones breves y realistas, suficientes para superar las comisiones de ida y vuelta.
+- Todo lo demás es el motor real: detección, net-profit por profundidad, riesgo, simulador, portafolio.
+- Es **imposible confundirlo con datos reales** — se muestra un banner permanente y el venue se llama `demo`.
+
+Actívalo en vivo desde el dashboard (botón **Demo**), o arranca con él encendido:
+
+```bash
+DEMO_MODE=true bun run dev:server
+```
+
+## Ejecución local
+
+Requiere [Bun](https://bun.sh) (o Node ≥ 20).
 
 ```bash
 bun install
-cp .env.example .env   # optional; sensible defaults are built in
-bun run dev            # starts server (:4000) and web (:5173) together
+cp .env.example .env   # opcional; trae valores por defecto razonables
+bun run dev            # levanta servidor (:4000) y web (:5173) juntos
 ```
 
-Then open http://localhost:5173.
+Luego abre http://localhost:5173.
 
-Run individually:
+Por separado:
 
 ```bash
 bun run dev:server
 bun run dev:web
 ```
 
-## Configuration
+## Configuración
 
-All optional — see `.env.example`. Highlights:
+Todo es opcional — ver `.env.example`. Lo más relevante:
 
-| Var | Default | Description |
-|-----|---------|-------------|
-| `EXCHANGES` | `binance,kraken,okx,bybit` | Enabled exchange connectors |
-| `SYMBOL` | `BTCUSDT` | Trading pair to monitor |
-| `MAX_NOTIONAL_USD` | `50000` | Notional cap per simulated leg |
-| `MIN_NET_PROFIT_USD` | `1` | Minimum net profit to execute |
-| `MAX_SANE_SPREAD_PCT` | `0.05` | Reject wider spreads as bad data |
-| `MAX_QUOTE_AGE_MS` | `2000` | Stale-feed guard |
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `EXCHANGES` | `binance,kraken,okx,bybit` | Connectors de exchange habilitados |
+| `SYMBOL` | `BTCUSDT` | Par a monitorear |
+| `MAX_NOTIONAL_USD` | `50000` | Tope nominal por pata simulada |
+| `MIN_NET_PROFIT_USD` | `1` | Ganancia neta mínima para ejecutar |
+| `MAX_SANE_SPREAD_PCT` | `0.05` | Rechaza spreads más anchos como datos erróneos |
+| `MAX_QUOTE_AGE_MS` | `2000` | Guarda de feed obsoleto |
+| `DEMO_MODE` | `false` | Arrancar con el inyector demo/replay encendido |
 
-## Deployment
+## Despliegue
 
-- **Web** → Vercel (root directory `apps/web`).
-- **Server** → Railway / Render (root directory `apps/server`) — needs a long-lived process for the WebSocket connections.
+- **Web** → Vercel (directorio raíz `apps/web`).
+- **Servidor** → Railway / Render (directorio raíz `apps/server`) — requiere un proceso de larga vida para las conexiones WebSocket.
 
-## Demo / replay mode
+## Nota sobre el realismo
 
-Genuine net-positive BTC arbs between major venues are essentially nonexistent, so a purely live demo shows an (honest) empty blotter. To demonstrate the full execution path — partial fills, wallet drift, realized P&L, equity curve — there is a clearly-labeled **demo/replay mode**:
-
-- A synthetic `demo` venue quotes around the live reference price and injects brief, realistic price dislocations large enough to clear round-trip fees.
-- Everything else is the real engine: detection, depth-walked net-profit, risk gate, execution simulator, portfolio.
-- It is **impossible to mistake for real data** — a persistent banner is shown and the venue is named `demo`.
-
-Toggle it live from the dashboard (the **Demo** button), or start with it on:
-
-```bash
-DEMO_MODE=true bun run dev:server
-```
-
-## Notes on realism
-
-Clean cross-exchange BTC/USDT arbitrage between major venues is **rare and thin** — efficient markets close these gaps fast. A system that surfaces *few but genuinely net-positive* opportunities (and rejects the fake ones) is more honest than one that appears to "print money", which usually signals a modeling bug.
+El arbitraje limpio de BTC/USDT entre venues importantes es **raro y de poca profundidad** — los mercados eficientes cierran estas brechas rápido. Un sistema que muestra *pocas pero genuinamente positivas* oportunidades (y rechaza las falsas) es más honesto que uno que aparenta "imprimir dinero", lo cual suele indicar un error de modelado.
