@@ -1,10 +1,11 @@
-import { Activity, BarChart3, FlaskConical, HelpCircle, Radio, Route, SlidersHorizontal } from "lucide-react";
+import { Activity, BarChart3, FlaskConical, Github, HelpCircle, Radio, Route, SlidersHorizontal } from "lucide-react";
 import type { EngineConfig, FeedStatus, LatencyStats } from "@arb/shared";
 import { Badge } from "@/components/ui/badge";
 import { FilobotLogo } from "@/components/FilobotLogo";
 import { ms, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
+import { REPO_URL } from "@/lib/repo";
 
 interface Props {
   connected: boolean;
@@ -156,6 +157,16 @@ export function StatusBar({
           <HelpCircle className="h-3.5 w-3.5" />
           {t("nav.guide")}
         </button>
+
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          title={t("nav.repo")}
+        >
+          <Github className="h-3.5 w-3.5" />
+        </a>
 
         <div className="flex items-center overflow-hidden rounded-md border border-border">
           {(["es", "en"] as const).map((code) => (
