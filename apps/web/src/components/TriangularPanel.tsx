@@ -2,10 +2,11 @@ import { useMemo } from "react";
 import type { EngineConfig, ExchangeId, TriangularOpportunity } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { InfoButton } from "@/components/InfoButton";
 import { pct, titleCase, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+const GRID = "grid grid-cols-[1fr_150px_150px] items-center gap-x-3";
 
 interface Props {
   triangular: TriangularOpportunity[];
@@ -44,7 +45,7 @@ export function TriangularPanel({ triangular, config }: Props) {
   const notional = config?.triangular?.[0]?.notionalUsd;
 
   return (
-    <Card className="flex h-full flex-col">
+    <Card className="flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>
@@ -59,24 +60,22 @@ export function TriangularPanel({ triangular, config }: Props) {
           />
         </div>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
-        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <CardContent className="flex flex-col gap-2">
+        <div className={cn(GRID, "px-1 text-[10px] uppercase tracking-wider text-muted-foreground")}>
           <span>Venue</span>
           <span className="text-right">USDT→BTC→ETH</span>
           <span className="text-right">USDT→ETH→BTC</span>
         </div>
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-1.5 pr-2">
-            {venues.length === 0 && (
-              <p className="px-1 py-4 text-center text-xs text-muted-foreground">
-                Waiting for triangular feeds…
-              </p>
-            )}
-            {venues.map((v) => (
-              <VenueRow key={v.exchange} venue={v} />
-            ))}
-          </div>
-        </ScrollArea>
+        <div className="space-y-1.5">
+          {venues.length === 0 && (
+            <p className="px-1 py-4 text-center text-xs text-muted-foreground">
+              Waiting for triangular feeds…
+            </p>
+          )}
+          {venues.map((v) => (
+            <VenueRow key={v.exchange} venue={v} />
+          ))}
+        </div>
         <p className="pt-1 text-[10px] leading-relaxed text-muted-foreground">
           Per-venue loop across BTC/USDT · ETH/BTC · ETH/USDT, net of three taker
           fees on a {notional ? usd(notional, 0) : "—"} notional.
@@ -88,7 +87,7 @@ export function TriangularPanel({ triangular, config }: Props) {
 
 function VenueRow({ venue }: { venue: VenueCycles }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 rounded-md border border-border bg-muted/20 px-2 py-1.5">
+    <div className={cn(GRID, "rounded-md border border-border bg-muted/20 px-2.5 py-2")}>
       <span className="text-xs font-medium">{titleCase(venue.exchange)}</span>
       <CycleCell opp={venue.fwd} />
       <CycleCell opp={venue.rev} />
@@ -101,7 +100,7 @@ function CycleCell({ opp }: { opp: TriangularOpportunity | undefined }) {
     return <span className="text-right text-xs text-muted-foreground tabular-nums">—</span>;
   }
   return (
-    <div className="flex items-center justify-end gap-1.5">
+    <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
       {opp.actionable ? (
         <Badge variant="profit">EXEC</Badge>
       ) : (
@@ -111,13 +110,13 @@ function CycleCell({ opp }: { opp: TriangularOpportunity | undefined }) {
       )}
       <span
         className={cn(
-          "w-24 text-right text-xs font-semibold tabular-nums",
+          "text-right text-xs font-semibold tabular-nums",
           opp.netProfit > 0 ? "text-profit" : "text-loss",
         )}
       >
         {usd(opp.netProfit)}
         <span className="ml-1 text-[10px] text-muted-foreground">
-          {pct(opp.netProfitPct, 3)}
+          {pct(opp.netProfitPct, 2)}
         </span>
       </span>
     </div>

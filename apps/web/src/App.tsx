@@ -80,7 +80,7 @@ export default function App() {
             <div id="tour-opps" className="min-h-0 flex-1">
               <OpportunityFeed opportunities={state.opportunities} />
             </div>
-            <div id="tour-tri" className="h-[220px]">
+            <div id="tour-tri" className="flex-none">
               <TriangularPanel triangular={state.triangular} config={state.config} />
             </div>
           </div>
