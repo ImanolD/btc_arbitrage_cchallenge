@@ -9,9 +9,10 @@ import type {
   FeedStatus,
   ServerToClientEvents,
 } from "@arb/shared";
-import { PORT, SYMBOL, engineConfig } from "./config.js";
+import { DEMO_MODE_DEFAULT, PORT, SYMBOL, engineConfig } from "./config.js";
 import { createConnectors } from "./exchanges/index.js";
 import { ArbitrageEngine } from "./engine/arbitrageEngine.js";
+import { DemoMarketMaker } from "./demo/demoMarketMaker.js";
 
 const app = express();
 app.use(cors());
@@ -69,8 +70,38 @@ io.on("connection", (socket: ArbSocket) => {
     socket.emit("portfolio", engine.portfolioStats());
   });
 
+  socket.on("setDemo", (enabled: boolean) => setDemoMode(enabled));
+
   socket.on("disconnect", () => clients.delete(socket));
 });
+
+// Synthetic demo/replay venue — feeds the engine like any other connector.
+const demo = new DemoMarketMaker(SYMBOL, () => engine.currentReferencePrice());
+demo.on("book", (book) => {
+  engine.onBook(book);
+  broadcast("book", book);
+  const fs = feedStatus.get("demo");
+  if (fs) fs.lastUpdate = book.receivedAt;
+});
+
+function setDemoMode(enabled: boolean): void {
+  if (enabled === engineConfig.demoMode) return;
+  engineConfig.demoMode = enabled;
+  if (enabled) {
+    feedStatus.set("demo", {
+      exchange: "demo",
+      status: "connected",
+      lastUpdate: null,
+    });
+    demo.start();
+  } else {
+    demo.stop();
+    feedStatus.delete("demo");
+  }
+  broadcast("config", engineConfig);
+  broadcast("feeds", [...feedStatus.values()]);
+  console.log(`[demo] ${enabled ? "ENABLED" : "disabled"}`);
+}
 
 // Wire up exchange connectors.
 const connectors = createConnectors(engineConfig.exchanges, SYMBOL);
@@ -100,6 +131,12 @@ for (const connector of connectors) {
 
 engine.start();
 
+// Honour DEMO_MODE at boot (config starts true; flip via setDemoMode to start).
+if (DEMO_MODE_DEFAULT) {
+  engineConfig.demoMode = false;
+  setDemoMode(true);
+}
+
 server.listen(PORT, () => {
   console.log(`⚡ arbitrage server listening on :${PORT}`);
   console.log(`   symbol=${SYMBOL} exchanges=${engineConfig.exchanges.join(",")}`);
@@ -108,6 +145,7 @@ server.listen(PORT, () => {
 function shutdown() {
   console.log("\nshutting down…");
   for (const c of connectors) c.stop();
+  demo.stop();
   engine.stop();
   io.close();
   server.close(() => process.exit(0));

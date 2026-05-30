@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   EngineConfig,
   ExchangeId,
@@ -9,7 +9,7 @@ import type {
   SimulatedTrade,
   TopOfBook,
 } from "@arb/shared";
-import { createSocket } from "@/lib/socket";
+import { createSocket, type ArbSocket } from "@/lib/socket";
 
 const MAX_FEED_ITEMS = 60;
 
@@ -41,13 +41,23 @@ const initialState: ArbState = {
  * frame so the browser never becomes the bottleneck — we log every event but
  * render at most ~60fps.
  */
-export function useArbStream(): ArbState {
+export interface ArbStream extends ArbState {
+  setDemo: (enabled: boolean) => void;
+}
+
+export function useArbStream(): ArbStream {
   const [state, setState] = useState<ArbState>(initialState);
   const bookBuffer = useRef<Record<string, TopOfBook>>({});
   const rafPending = useRef(false);
+  const socketRef = useRef<ArbSocket | null>(null);
+
+  const setDemo = useCallback((enabled: boolean) => {
+    socketRef.current?.emit("setDemo", enabled);
+  }, []);
 
   useEffect(() => {
     const socket = createSocket();
+    socketRef.current = socket;
 
     const flushBooks = () => {
       rafPending.current = false;
@@ -100,10 +110,11 @@ export function useArbStream(): ArbState {
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
+      socketRef.current = null;
     };
   }, []);
 
-  return state;
+  return { ...state, setDemo };
 }
 
 export type { ExchangeId };

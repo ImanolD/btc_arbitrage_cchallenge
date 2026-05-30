@@ -9,7 +9,9 @@ export type ExchangeId =
   | "kraken"
   | "coinbase"
   | "okx"
-  | "bybit";
+  | "bybit"
+  /** Synthetic venue used only by the clearly-labeled demo/replay mode. */
+  | "demo";
 
 export type OrderSide = "buy" | "sell";
 
@@ -146,6 +148,8 @@ export interface EngineConfig {
   minNetProfitUsd: number;
   maxSaneSpreadPct: number;
   maxQuoteAgeMs: number;
+  /** Whether the synthetic demo/replay injector is currently active. */
+  demoMode: boolean;
 }
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
@@ -171,4 +175,6 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   /** Ask the server to replay current state on connect. */
   sync: () => void;
+  /** Toggle the clearly-labeled demo/replay injector on or off. */
+  setDemo: (enabled: boolean) => void;
 }

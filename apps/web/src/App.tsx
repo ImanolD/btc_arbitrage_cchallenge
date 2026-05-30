@@ -6,6 +6,7 @@ import { OpportunityFeed } from "@/components/OpportunityFeed";
 import { TradeBlotter } from "@/components/TradeBlotter";
 import { EquityChart } from "@/components/EquityChart";
 import { LatencyPanel } from "@/components/LatencyPanel";
+import { DemoBanner } from "@/components/DemoBanner";
 
 export default function App() {
   const state = useArbStream();
@@ -17,7 +18,9 @@ export default function App() {
         config={state.config}
         feeds={state.feeds}
         latency={state.latency}
+        onToggleDemo={state.setDemo}
       />
+      {state.config?.demoMode && <DemoBanner />}
 
       <main className="flex flex-1 flex-col gap-3 p-3">
         <StatCards portfolio={state.portfolio} />

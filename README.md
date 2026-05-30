@@ -107,6 +107,20 @@ All optional — see `.env.example`. Highlights:
 - **Web** → Vercel (root directory `apps/web`).
 - **Server** → Railway / Render (root directory `apps/server`) — needs a long-lived process for the WebSocket connections.
 
+## Demo / replay mode
+
+Genuine net-positive BTC arbs between major venues are essentially nonexistent, so a purely live demo shows an (honest) empty blotter. To demonstrate the full execution path — partial fills, wallet drift, realized P&L, equity curve — there is a clearly-labeled **demo/replay mode**:
+
+- A synthetic `demo` venue quotes around the live reference price and injects brief, realistic price dislocations large enough to clear round-trip fees.
+- Everything else is the real engine: detection, depth-walked net-profit, risk gate, execution simulator, portfolio.
+- It is **impossible to mistake for real data** — a persistent banner is shown and the venue is named `demo`.
+
+Toggle it live from the dashboard (the **Demo** button), or start with it on:
+
+```bash
+DEMO_MODE=true bun run dev:server
+```
+
 ## Notes on realism
 
 Clean cross-exchange BTC/USDT arbitrage between major venues is **rare and thin** — efficient markets close these gaps fast. A system that surfaces *few but genuinely net-positive* opportunities (and rejects the fake ones) is more honest than one that appears to "print money", which usually signals a modeling bug.

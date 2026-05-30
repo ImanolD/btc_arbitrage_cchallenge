@@ -17,6 +17,8 @@ const enabledExchanges = (process.env.EXCHANGES ?? "binance,kraken,okx,bybit")
 
 export const SYMBOL = process.env.SYMBOL ?? "BTCUSDT";
 
+export const DEMO_MODE_DEFAULT = (process.env.DEMO_MODE ?? "false") === "true";
+
 export const engineConfig: EngineConfig = {
   symbol: SYMBOL,
   exchanges: enabledExchanges,
@@ -24,6 +26,7 @@ export const engineConfig: EngineConfig = {
   minNetProfitUsd: num("MIN_NET_PROFIT_USD", 1),
   maxSaneSpreadPct: num("MAX_SANE_SPREAD_PCT", 0.05),
   maxQuoteAgeMs: num("MAX_QUOTE_AGE_MS", 2_000),
+  demoMode: DEMO_MODE_DEFAULT,
 };
 
 export const startingBalances = {
@@ -43,4 +46,5 @@ export const feeModels: Record<ExchangeId, FeeModel> = {
   coinbase: { takerFee: 0.006, withdrawalFeeBtc: 0.0 },
   okx: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
   bybit: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
+  demo: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
 };

@@ -50,8 +50,13 @@ export class ArbitrageEngine extends EventEmitter {
     super();
     this.referencePrice = 0;
     this.risk = new RiskManager(config);
+    // Always provision a `demo` wallet so the demo/replay injector can execute,
+    // regardless of whether demo mode is on at boot.
+    const walletExchanges: ExchangeId[] = config.exchanges.includes("demo")
+      ? config.exchanges
+      : [...config.exchanges, "demo"];
     this.portfolio = new Portfolio(
-      config.exchanges,
+      walletExchanges,
       startingBalances.usdPerExchange,
       startingBalances.btcPerExchange,
       this.referencePriceOr(60_000),
@@ -72,11 +77,20 @@ export class ArbitrageEngine extends EventEmitter {
     if (this.statsTimer) clearInterval(this.statsTimer);
   }
 
+  /** Current mark-to-market reference price (mid of the latest real book). */
+  currentReferencePrice(): number {
+    return this.referencePrice;
+  }
+
   /** Hot path: called on every incoming top-of-book update. */
   onBook(book: TopOfBook): void {
     this.store.update(book);
     this.latency.recordBook(book);
-    this.referencePrice = (book.bestBid + book.bestAsk) / 2;
+    // The demo venue is intentionally dislocated, so it must never drive the
+    // mark-to-market reference used for equity.
+    if (book.exchange !== "demo") {
+      this.referencePrice = (book.bestBid + book.bestAsk) / 2;
+    }
 
     for (const other of this.store.others(book.exchange)) {
       // Direction 1: buy on `book`, sell on `other`.
