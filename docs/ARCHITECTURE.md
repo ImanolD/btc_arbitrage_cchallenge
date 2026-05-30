@@ -38,7 +38,7 @@ btc_arbitrage_cchallenge/
 ## 3. Flujo de datos
 
 ```
-Feeds WS (Binance, Kraken, OKX, Bybit)
+Feeds WS (Binance · Kraken · OKX · Bybit · KuCoin · Gate.io · Bitstamp · Bitfinex)
         │  TopOfBook normalizado (escalera bids/asks + timestamps)
         ▼
   OrderBookStore (en memoria, por exchange)
@@ -62,14 +62,22 @@ El procesamiento es **dirigido por eventos**: el motor reevalúa en **cada actua
 
 Cada exchange implementa `BaseConnector`, que aporta la robustez que premia el criterio de latencia: conexión persistente, *heartbeat* y reconexión automática con *backoff* acotado. Las subclases solo implementan la suscripción y el parseo específico.
 
-| Exchange | Canal | Notas |
-|----------|-------|-------|
-| Binance | `@depth20@100ms` | snapshot parcial del book cada 100 ms |
-| Kraken | `book` v2 | snapshot + deltas; se mantiene el book local |
-| OKX | `books5` | snapshot del top-5 en cada cambio |
-| Bybit | `orderbook.50` | snapshot + deltas; *ping* JSON de keepalive |
+| Exchange | Canal | Quote | Notas |
+|----------|-------|-------|-------|
+| Binance | `@depth20@100ms` | USDT | snapshot parcial del book cada 100 ms |
+| Kraken | `book` v2 | USDT | snapshot + deltas; se mantiene el book local |
+| OKX | `books5` | USDT | snapshot del top-5 en cada cambio |
+| Bybit | `orderbook.50` | USDT | snapshot + deltas; *ping* JSON de keepalive |
+| KuCoin | `level2Depth50` | USDT | token público vía REST antes de conectar; *ping* JSON |
+| Gate.io | `spot.order_book` | USDT | snapshot limitado cada 100 ms |
+| Bitstamp | `order_book_{pair}` | USD | snapshot top-100 en cada cambio |
+| Bitfinex | `book` v2 | USD | snapshot + deltas; se mantiene el book local |
 
-Todos los connectors normalizan su payload a un `TopOfBook` común (escalera de `bids`/`asks`, mejores bid/ask, y timestamps). **Agregar un exchange es un solo archivo nuevo** que extiende `BaseConnector`, más una línea en el registro.
+Todos los feeds son **públicos y sin API keys** (clean-room: el repo corre sin credenciales). Todos normalizan su payload a un `TopOfBook` común (escalera de `bids`/`asks`, mejores bid/ask, `quote` y timestamps). Un helper de parseo (`parsePair`) traduce un símbolo genérico (`BTCUSDT`, `ETHBTC`) al formato propio de cada venue, de modo que el resto del sistema habla un único lenguaje de símbolos. **Agregar un exchange es un solo archivo nuevo** que extiende `BaseConnector`, más una línea en el registro.
+
+### Agrupación por moneda de cotización
+
+Cada `TopOfBook` lleva su `quote` (`USDT` o `USD`). El motor **solo evalúa pares de venues que cotizan el mismo activo**: cruzar un book BTC/USD con uno BTC/USDT produciría un "arbitraje" fantasma que en realidad es exposición al *peg* de USDT (riesgo FX), no un spread libre. Así, los venues USDT y USD forman *pools* de comparación independientes — una salvaguarda de corrección, no solo de presentación.
 
 ---
 
@@ -132,12 +140,12 @@ Optimizaciones en la ruta caliente: estado plano en memoria, nada bloqueante en 
 
 ## 9. Arbitraje triangular
 
-`TriangularEngine` monitorea un solo venue (Binance) sobre tres pares que forman un ciclo: `BTC/USDT`, `ETH/BTC`, `ETH/USDT`. Evalúa ambas direcciones sobre un nominal fijo:
+El arbitraje triangular es intrínsecamente de **un solo exchange**: las tres patas deben ejecutarse en el mismo libro, así que no tiene sentido mezclar precios entre venues. Por eso se instancia un `TriangularEngine` **independiente por cada venue configurado** (por defecto Binance, OKX, Bybit, KuCoin y Gate.io), cada uno con sus propios tres connectors para `BTC/USDT`, `ETH/BTC` y `ETH/USDT`. Estos connectors alimentan **solo** al motor triangular y nunca entran al flujo de books cross-exchange. Cada motor evalúa ambas direcciones sobre un nominal fijo:
 
 - **Forward:** `USDT → BTC → ETH → USDT`
 - **Reverse:** `USDT → ETH → BTC → USDT`
 
-Cada vuelta aplica tres *taker fees*. En un mercado eficiente el resultado neto ronda −0.3% (exactamente el arrastre de 3 × 0.1% de comisiones), lo cual el dashboard muestra honestamente: la estrategia funciona y se ve **por qué** el ciclo no supera las comisiones.
+Cada vuelta aplica tres *taker fees*. En un mercado eficiente el resultado neto ronda −0.3% en venues de 0.1% (exactamente el arrastre de 3 × 0.1%) y más negativo donde la comisión es mayor (p. ej. Gate.io a 0.2% ronda −0.6%), lo cual el dashboard muestra honestamente por venue: la estrategia funciona y se ve **por qué** el ciclo no supera las comisiones.
 
 ---
 
@@ -173,5 +181,5 @@ La instalación y la orquestación de tareas siguen usando **Bun workspaces**; s
 
 - **Profundidad del triangular:** hoy usa *top-of-book* sobre un nominal fijo (el estándar para detectar el edge); un *depth walk* de tres patas sería el siguiente paso.
 - **Persistencia:** el historial vive en memoria; una base de datos (p. ej. MongoDB) permitiría histórico entre sesiones.
-- **Más venues y pares:** la abstracción de connectors hace trivial sumar exchanges; generalizar a múltiples símbolos ampliaría el universo de oportunidades.
+- **Más pares y monedas de cotización:** ya corremos 8 venues en dos *pools* (USDT/USD); la abstracción de connectors hace trivial sumar exchanges, y generalizar a más símbolos (p. ej. pools USDC) ampliaría el universo de oportunidades.
 - **Colocación:** desplegar el servidor en una región cercana al *edge* de los exchanges reduciría la latencia de feed (RTT).

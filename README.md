@@ -14,8 +14,8 @@ Detección de **arbitraje de Bitcoin entre exchanges** en tiempo real y **ejecuc
 ## Arquitectura
 
 ```
-Feeds WS (Binance, Kraken, OKX, Bybit)
-        │  TopOfBook normalizado (escalera bids/asks + timestamps)
+Feeds WS (Binance · Kraken · OKX · Bybit · KuCoin · Gate.io · Bitstamp · Bitfinex)
+        │  TopOfBook normalizado (escalera bids/asks + quote + timestamps)
         ▼
   OrderBookStore (en memoria, por exchange)
         ▼
@@ -49,14 +49,20 @@ btc_arbitrage_cchallenge/
 
 ### Connectors
 
-| Exchange | Canal | Notas |
-|----------|-------|-------|
-| Binance | `@depth20@100ms` | snapshot parcial del book |
-| Kraken | `book` v2 | snapshot + deltas, book local mantenido |
-| OKX | `books5` | snapshot del top-5 por cambio |
-| Bybit | `orderbook.50` | snapshot + deltas, *ping* JSON de keepalive |
+| Exchange | Canal | Quote | Notas |
+|----------|-------|-------|-------|
+| Binance | `@depth20@100ms` | USDT | snapshot parcial del book |
+| Kraken | `book` v2 | USDT | snapshot + deltas, book local mantenido |
+| OKX | `books5` | USDT | snapshot del top-5 por cambio |
+| Bybit | `orderbook.50` | USDT | snapshot + deltas, *ping* JSON de keepalive |
+| KuCoin | `level2Depth50` | USDT | bootstrap de token vía REST + *ping* JSON |
+| Gate.io | `spot.order_book` | USDT | snapshot limitado cada 100ms |
+| Bitstamp | `order_book_{pair}` | USD | snapshot top-100 por cambio |
+| Bitfinex | `book` v2 | USD | snapshot + deltas, book local mantenido |
 
-Agregar un venue es un solo archivo nuevo que implementa `BaseConnector` más una entrada en el registro.
+Todos los feeds son **públicos y sin API keys** (clean-room: el repo corre tal cual, sin credenciales). Agregar un venue es un solo archivo nuevo que implementa `BaseConnector` más una entrada en el registro.
+
+**Agrupación por moneda de cotización.** Cada book lleva su `quote` (USDT/USD) y el motor **solo compara venues que cotizan el mismo activo**: cruzar un book BTC/USD con uno BTC/USDT surgiría un "arbitraje" fantasma que en realidad es el riesgo del peg de USDT, no un spread libre. Así, los venues USDT y USD forman dos *pools* independientes.
 
 ## Latencia: cómo se mide
 
@@ -75,7 +81,7 @@ Optimizaciones en la ruta caliente: estado plano en memoria, nada bloqueante en 
 
 ## Arbitraje triangular
 
-Además del arbitraje cross-exchange, el sistema monitorea **arbitraje triangular** en un solo venue (Binance) sobre `BTC/USDT · ETH/BTC · ETH/USDT`, evaluando ambas direcciones del ciclo (`USDT → BTC → ETH → USDT` y su inverso) netas de tres *taker fees*.
+Además del arbitraje cross-exchange, el sistema monitorea **arbitraje triangular** de forma independiente en **cada venue configurado** (por defecto Binance, OKX, Bybit, KuCoin y Gate.io) sobre `BTC/USDT · ETH/BTC · ETH/USDT`, evaluando ambas direcciones del ciclo (`USDT → BTC → ETH → USDT` y su inverso) netas de tres *taker fees*. Cada venue obtiene sus propios tres connectors; el arbitraje triangular es intrínsecamente de **un solo exchange** (los tres pares deben ejecutarse en el mismo libro), por eso se corre por venue en vez de mezclar precios entre exchanges.
 
 ## Modo demo / replay
 
@@ -116,7 +122,8 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `EXCHANGES` | `binance,kraken,okx,bybit` | Connectors de exchange habilitados |
+| `EXCHANGES` | `binance,kraken,okx,bybit,kucoin,gate,bitstamp,bitfinex` | Connectors de exchange habilitados |
+| `TRIANGULAR_EXCHANGES` | `binance,okx,bybit,kucoin,gate` | Venues con arbitraje triangular |
 | `SYMBOL` | `BTCUSDT` | Par a monitorear |
 | `MAX_NOTIONAL_USD` | `50000` | Tope nominal por pata simulada |
 | `MIN_NET_PROFIT_USD` | `1` | Ganancia neta mínima para ejecutar |
