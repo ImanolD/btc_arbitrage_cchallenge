@@ -56,6 +56,8 @@ Feeds WS (Binance · Kraken · OKX · Bybit · KuCoin · Gate.io · Bitstamp · 
 
 El procesamiento es **dirigido por eventos**: el motor reevalúa en **cada actualización de book**, no en un temporizador. Cuando llega un book del exchange X, solo se reverifican los pares que **involucran a X** contra los demás — costo O(N) por actualización, no O(N²) sobre todo el producto cruzado.
 
+**Priorización.** En cada tick el motor no ejecuta "la primera oportunidad que ve": recolecta todas las rutas candidatas que toca la actualización, las emite (incluidas las rechazadas), y luego **ejecuta las accionables en orden de mayor a menor ganancia neta**, de modo que el capital escaso se asigna primero a la mejor oportunidad. El dashboard resalta la "mejor ejecutable ahora".
+
 ---
 
 ## 4. Connectors de exchange
@@ -97,7 +99,13 @@ Cada exchange tiene su *taker fee* publicada (`feeModels`). Las comisiones se ap
 
 El arbitraje real **no** compra en el exchange A y transfiere BTC on-chain al exchange B en cada operación: la liquidación on-chain de Bitcoin tarda ~10–60 min y mataría cualquier oportunidad. Las mesas reales **pre-posicionan capital en ambos venues** y rebalancean ocasionalmente.
 
-Por eso el sistema usa el **modelo de inventario**: comprar en A debita USD de A y acredita BTC en A; vender en B debita BTC de B y acredita USD en B. Los balances **se desvían con el tiempo** (A acumula BTC, B acumula USD), y el sistema **muestra esa desviación** en lugar de esconderla tras la ficción de transferencias instantáneas. El costo de retiro queda documentado en `feeModels` pero no se cobra por operación bajo este modelo.
+Por eso el sistema usa el **modelo de inventario**: comprar en A debita USD de A y acredita BTC en A; vender en B debita BTC de B y acredita USD en B. Los balances **se desvían con el tiempo** (A acumula BTC, B acumula USD), y el sistema **muestra esa desviación** en lugar de esconderla tras la ficción de transferencias instantáneas.
+
+### 5.4 Costo de retiro: amortizado, no por operación
+
+El error clásico es restar el *withdrawal fee* en **cada** operación; eso descartaría oportunidades reales, porque bajo el modelo de inventario no se mueve BTC on-chain en cada trade. El retiro es un **costo de rebalanceo**: solo se paga cuando la desviación de inventario de un venue supera un umbral (`REBALANCE_THRESHOLD_BTC`) y obliga a una transferencia on-chain hacia el venue más drenado.
+
+Cuando eso ocurre, `Portfolio` mueve el excedente de BTC al venue depletado, liquida la pata de USD internamente, y **cobra solo la comisión de red** (el `withdrawalFeeBtc` del venue, valuado a precio de referencia) como costo real de P&L. Ese costo total se **amortiza entre las operaciones ejecutadas** y se muestra en el dashboard como **"costo de rebalanceo / operación"** — la forma honesta y correcta de incorporar el requisito de *withdrawal fees* sin penalizar cada trade.
 
 ---
 

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { Opportunity } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,10 +19,32 @@ interface Props {
 }
 
 export function OpportunityFeed({ opportunities }: Props) {
+  // Prioritization, made visible: the most net-profitable executable route in
+  // the current window — the one the engine allocates capital to first.
+  const best = useMemo(() => {
+    let top: Opportunity | null = null;
+    for (const o of opportunities) {
+      if (o.actionable && (top === null || o.netProfit > top.netProfit)) top = o;
+    }
+    return top;
+  }, [opportunities]);
+
   return (
     <Card className="flex h-full flex-col">
-      <CardHeader>
+      <CardHeader className="space-y-2">
         <CardTitle>Opportunity feed — gross vs net</CardTitle>
+        {best && (
+          <div className="flex items-center justify-between rounded-md border border-profit/40 bg-profit/10 px-3 py-1.5">
+            <span className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+              <Badge variant="profit">TOP</Badge>
+              Best executable now · {titleCase(best.buyExchange)} →{" "}
+              {titleCase(best.sellExchange)}
+            </span>
+            <span className="text-sm font-bold tabular-nums text-profit">
+              {usd(best.netProfit)}
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full">

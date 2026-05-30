@@ -163,6 +163,22 @@ export interface PortfolioStats {
   wallets: WalletBalance[];
   /** Equity curve points for charting. */
   equityCurve: EquityPoint[];
+  /** Inventory-rebalancing accounting (amortized withdrawal-fee model). */
+  rebalancing: RebalancingStats;
+}
+
+/**
+ * Withdrawal fees are a rebalancing cost, not a per-trade cost: the inventory
+ * model only pays them when accumulated drift forces an on-chain transfer
+ * between venues. We track the total and amortize it across executed trades.
+ */
+export interface RebalancingStats {
+  /** Number of on-chain rebalancing transfers triggered so far. */
+  events: number;
+  /** Total withdrawal-fee cost incurred (quote currency). */
+  totalCostUsd: number;
+  /** totalCostUsd / trades — the honest per-trade drag from withdrawals. */
+  amortizedCostPerTradeUsd: number;
 }
 
 export interface EquityPoint {

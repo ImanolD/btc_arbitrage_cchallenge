@@ -29,6 +29,13 @@ export interface EngineEvents {
   latency: (stats: LatencyStats) => void;
 }
 
+/** A detected route plus the live books needed to execute it. */
+interface Candidate {
+  opp: Opportunity;
+  buyBook: TopOfBook;
+  sellBook: TopOfBook;
+}
+
 /**
  * Event-driven arbitrage engine. Evaluates on every book tick (no polling
  * loop), and only re-checks the pairs involving the exchange that just updated
@@ -92,11 +99,37 @@ export class ArbitrageEngine extends EventEmitter {
       this.referencePrice = (book.bestBid + book.bestAsk) / 2;
     }
 
+    // Collect every candidate route touching the venue that just updated,
+    // then act on them in priority order (most net-profitable first) so scarce
+    // capital is allocated to the best opportunity rather than the first seen.
+    const candidates: Candidate[] = [];
     for (const other of this.store.others(book.exchange)) {
-      // Direction 1: buy on `book`, sell on `other`.
-      this.evaluate(book, other, book);
-      // Direction 2: buy on `other`, sell on `book`.
-      this.evaluate(other, book, book);
+      const a = this.consider(book, other, book); // buy book, sell other
+      if (a) candidates.push(a);
+      const b = this.consider(other, book, book); // buy other, sell book
+      if (b) candidates.push(b);
+    }
+    if (candidates.length === 0) return;
+
+    // Surface all detections (gross-vs-net story) regardless of execution.
+    for (const c of candidates) {
+      this.portfolio.recordOpportunity(c.opp.actionable);
+      this.emit("opportunity", c.opp);
+    }
+
+    // Prioritize: execute actionable routes by descending net profit.
+    const now = Date.now();
+    const actionable = candidates
+      .filter((c) => c.opp.actionable)
+      .sort((x, y) => y.opp.netProfit - x.opp.netProfit);
+    for (const c of actionable) {
+      if (!this.cooldownReady(c.buyBook.exchange, c.sellBook.exchange, now)) continue;
+      const trade = this.simulator.execute(c.opp, c.buyBook, c.sellBook);
+      if (trade && trade.filledSize > 0) {
+        this.portfolio.applyTrade(trade, this.referencePriceOr(trade.avgBuyPrice));
+        this.lastTradeAt.set(pairKey(c.buyBook.exchange, c.sellBook.exchange), now);
+        this.emit("trade", trade);
+      }
     }
   }
 
@@ -108,13 +141,23 @@ export class ArbitrageEngine extends EventEmitter {
     return this.latency.snapshot();
   }
 
-  private evaluate(buyBook: TopOfBook, sellBook: TopOfBook, trigger: TopOfBook): void {
+  /**
+   * Evaluate one directed route (buy on `buyBook`, sell on `sellBook`) and
+   * return a candidate to act on, or null if it's not a (throttle-allowed)
+   * detection. Pure w.r.t. portfolio/emit — the caller records, emits and
+   * executes so it can prioritize across all routes for this tick.
+   */
+  private consider(
+    buyBook: TopOfBook,
+    sellBook: TopOfBook,
+    trigger: TopOfBook,
+  ): Candidate | null {
     // Only compare venues quoting the same asset. A BTC/USD book and a BTC/USDT
     // book differ by the USDT peg, so crossing them would surface a phantom
     // "arbitrage" that is really FX risk, not a free spread.
-    if (buyBook.quote !== sellBook.quote) return;
+    if (buyBook.quote !== sellBook.quote) return null;
     // Quick reject: only a gross cross (buy ask < sell bid) can be arbitrage.
-    if (buyBook.bestAsk >= sellBook.bestBid) return;
+    if (buyBook.bestAsk >= sellBook.bestBid) return null;
 
     const buyFee = feeModels[buyBook.exchange].takerFee;
     const sellFee = feeModels[sellBook.exchange].takerFee;
@@ -132,7 +175,7 @@ export class ArbitrageEngine extends EventEmitter {
     if (calc.size <= 0) {
       calc = topOfBookArb(buyBook, sellBook, buyFee, sellFee, this.config.maxNotionalUsd);
     }
-    if (calc.size <= 0) return;
+    if (calc.size <= 0) return null;
 
     const now = Date.now();
     const decision = this.risk.evaluate(calc, buyBook, sellBook, now);
@@ -169,20 +212,10 @@ export class ArbitrageEngine extends EventEmitter {
     const throttled =
       !opp.actionable &&
       now - (this.lastOppAt.get(routeKey) ?? 0) < OPPORTUNITY_THROTTLE_MS;
-    if (throttled) return;
+    if (throttled) return null;
     this.lastOppAt.set(routeKey, now);
 
-    this.portfolio.recordOpportunity(opp.actionable);
-    this.emit("opportunity", opp);
-
-    if (opp.actionable && this.cooldownReady(buyBook.exchange, sellBook.exchange, now)) {
-      const trade = this.simulator.execute(opp, buyBook, sellBook);
-      if (trade && trade.filledSize > 0) {
-        this.portfolio.applyTrade(trade, this.referencePriceOr(trade.avgBuyPrice));
-        this.lastTradeAt.set(pairKey(buyBook.exchange, sellBook.exchange), now);
-        this.emit("trade", trade);
-      }
-    }
+    return { opp, buyBook, sellBook };
   }
 
   private cooldownReady(buy: ExchangeId, sell: ExchangeId, now: number): boolean {

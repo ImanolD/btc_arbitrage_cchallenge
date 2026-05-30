@@ -17,6 +17,7 @@ export function StatCards({ portfolio }: Props) {
     label: string;
     value: string;
     tone?: "profit" | "loss" | "default";
+    title?: string;
   }[] = [
     {
       label: "Realized P&L",
@@ -38,12 +39,22 @@ export function StatCards({ portfolio }: Props) {
       value: portfolio ? pct(portfolio.winRate, 1) : "—",
       tone: "default",
     },
+    {
+      label: "Rebalance cost / trade",
+      value: portfolio ? usd(portfolio.rebalancing.amortizedCostPerTradeUsd) : "—",
+      tone: "default",
+      title: portfolio
+        ? `${portfolio.rebalancing.events} on-chain rebalances · ${usd(
+            portfolio.rebalancing.totalCostUsd,
+          )} total withdrawal fees`
+        : undefined,
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
       {items.map((item) => (
-        <Card key={item.label}>
+        <Card key={item.label} title={item.title}>
           <CardContent className="p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
               {item.label}

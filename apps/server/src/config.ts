@@ -65,6 +65,13 @@ export const startingBalances = {
 };
 
 /**
+ * Inventory drift (BTC) a single venue may accumulate before an on-chain
+ * rebalancing transfer is triggered. The withdrawal fee paid on that transfer
+ * is the only place per-trade withdrawal costs enter the model (amortized).
+ */
+export const REBALANCE_THRESHOLD_BTC = num("REBALANCE_THRESHOLD_BTC", 0.5);
+
+/**
  * Published taker-fee schedules (approximate, spot, no VIP tiers). Withdrawal
  * fees are listed for completeness but the engine uses the inventory model by
  * default (capital pre-positioned on both venues), so per-trade withdrawals are

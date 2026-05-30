@@ -5,6 +5,7 @@ import type {
   SimulatedTrade,
   WalletBalance,
 } from "@arb/shared";
+import { REBALANCE_THRESHOLD_BTC, feeModels } from "../config.js";
 
 const MAX_CURVE_POINTS = 500;
 
@@ -19,12 +20,16 @@ const MAX_CURVE_POINTS = 500;
  */
 export class Portfolio {
   private readonly wallets = new Map<ExchangeId, WalletBalance>();
+  /** Baseline BTC per venue; drift from this triggers rebalancing. */
+  private readonly baselineBtc = new Map<ExchangeId, number>();
   private readonly startingEquity: number;
   private realizedPnl = 0;
   private totalTrades = 0;
   private totalOpportunities = 0;
   private actionableOpportunities = 0;
   private winningTrades = 0;
+  private rebalanceEvents = 0;
+  private rebalanceCostUsd = 0;
   private readonly equityCurve: EquityPoint[] = [];
 
   constructor(
@@ -35,6 +40,7 @@ export class Portfolio {
   ) {
     for (const ex of exchanges) {
       this.wallets.set(ex, { exchange: ex, usd: startUsd, btc: startBtc });
+      this.baselineBtc.set(ex, startBtc);
     }
     this.startingEquity = this.equity(referencePrice);
   }
@@ -68,7 +74,60 @@ export class Portfolio {
     this.totalTrades += 1;
     if (trade.netProfit > 0) this.winningTrades += 1;
 
+    this.rebalanceIfNeeded(referencePrice);
     this.pushEquity(referencePrice);
+  }
+
+  /**
+   * Inventory model: the buy-venue keeps accumulating BTC while the sell-venue
+   * depletes it. When a venue drifts past the threshold, a real desk moves BTC
+   * on-chain to rebalance — paying that venue's BTC withdrawal fee. We move the
+   * excess to the most-depleted venue, settle the USD leg internally, and book
+   * only the network fee as a (real) cost. This is the ONLY place withdrawal
+   * fees enter the model, exactly as in production: amortized, not per-trade.
+   */
+  private rebalanceIfNeeded(referencePrice: number): void {
+    if (referencePrice <= 0) return;
+    // Multiple venues can drift; settle each over-threshold accumulator.
+    for (const wallet of this.wallets.values()) {
+      if (wallet.exchange === "demo") continue;
+      const baseline = this.baselineBtc.get(wallet.exchange) ?? 0;
+      const drift = wallet.btc - baseline;
+      if (drift <= REBALANCE_THRESHOLD_BTC) continue;
+
+      const target = this.mostDepletedVenue(wallet.exchange);
+      if (!target) continue;
+
+      const fee = feeModels[wallet.exchange].withdrawalFeeBtc;
+      const amount = drift; // send the excess back toward baseline
+      const usdValue = amount * referencePrice;
+
+      // On-chain BTC transfer (loses the network fee), USD settled internally.
+      wallet.btc -= amount;
+      target.btc += amount - fee;
+      target.usd -= usdValue;
+      wallet.usd += usdValue;
+
+      const costUsd = fee * referencePrice;
+      this.realizedPnl -= costUsd;
+      this.rebalanceCostUsd += costUsd;
+      this.rebalanceEvents += 1;
+    }
+  }
+
+  /** The venue whose BTC has dropped furthest below its baseline. */
+  private mostDepletedVenue(exclude: ExchangeId): WalletBalance | null {
+    let worst: WalletBalance | null = null;
+    let worstDrift = 0;
+    for (const w of this.wallets.values()) {
+      if (w.exchange === exclude || w.exchange === "demo") continue;
+      const drift = w.btc - (this.baselineBtc.get(w.exchange) ?? 0);
+      if (drift < worstDrift) {
+        worstDrift = drift;
+        worst = w;
+      }
+    }
+    return worst;
   }
 
   recordOpportunity(actionable: boolean): void {
@@ -102,6 +161,12 @@ export class Portfolio {
         btc: round8(w.btc),
       })),
       equityCurve: this.equityCurve,
+      rebalancing: {
+        events: this.rebalanceEvents,
+        totalCostUsd: round(this.rebalanceCostUsd),
+        amortizedCostPerTradeUsd:
+          this.totalTrades > 0 ? round(this.rebalanceCostUsd / this.totalTrades) : 0,
+      },
     };
   }
 }
