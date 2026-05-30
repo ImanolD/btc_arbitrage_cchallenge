@@ -14,7 +14,9 @@ export interface ConnectorEvents {
  */
 export abstract class BaseConnector extends EventEmitter {
   abstract readonly id: ExchangeId;
-  protected abstract readonly url: string;
+  // Not readonly: a few venues (e.g. KuCoin) must resolve the URL from a token
+  // endpoint before connecting.
+  protected abstract url: string;
 
   protected ws: WebSocket | null = null;
   private shouldRun = false;

@@ -10,8 +10,15 @@ export type ExchangeId =
   | "coinbase"
   | "okx"
   | "bybit"
+  | "kucoin"
+  | "gate"
+  | "bitstamp"
+  | "bitfinex"
   /** Synthetic venue used only by the clearly-labeled demo/replay mode. */
   | "demo";
+
+/** Quote currency a book is denominated in (used to group comparable venues). */
+export type QuoteAsset = "USDT" | "USD" | "USDC";
 
 export type OrderSide = "buy" | "sell";
 
@@ -25,6 +32,8 @@ export type BookLevel = readonly [price: number, quantity: number];
 export interface TopOfBook {
   exchange: ExchangeId;
   symbol: string;
+  /** Quote currency; only books with the same quote are compared for arbitrage. */
+  quote: QuoteAsset;
   bids: BookLevel[];
   asks: BookLevel[];
   /** Best bid/ask convenience fields (level 0). */
@@ -186,8 +195,8 @@ export interface EngineConfig {
   maxQuoteAgeMs: number;
   /** Whether the synthetic demo/replay injector is currently active. */
   demoMode: boolean;
-  /** Triangular-arbitrage monitoring config, if enabled. */
-  triangular: TriangularConfig | null;
+  /** Venues on which triangular arbitrage is monitored (empty if disabled). */
+  triangular: TriangularConfig[];
 }
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";

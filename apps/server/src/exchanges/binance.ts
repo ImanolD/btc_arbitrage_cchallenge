@@ -1,6 +1,7 @@
 import type WebSocket from "ws";
-import type { BookLevel, ExchangeId, TopOfBook } from "@arb/shared";
+import type { BookLevel, ExchangeId, QuoteAsset, TopOfBook } from "@arb/shared";
 import { BaseConnector } from "./base.js";
+import { quoteAssetOf } from "./symbols.js";
 
 interface BinanceDepthMessage {
   lastUpdateId: number;
@@ -15,10 +16,12 @@ interface BinanceDepthMessage {
 export class BinanceConnector extends BaseConnector {
   readonly id: ExchangeId = "binance";
   protected readonly url: string;
+  private readonly quote: QuoteAsset;
 
   constructor(symbol: string) {
     super(symbol);
-    const stream = `${symbol.toLowerCase()}@depth20@100ms`;
+    this.quote = quoteAssetOf(symbol);
+    const stream = `${symbol.toLowerCase().replace(/[-_/]/g, "")}@depth20@100ms`;
     this.url = `wss://stream.binance.com:9443/ws/${stream}`;
   }
 
@@ -38,6 +41,7 @@ export class BinanceConnector extends BaseConnector {
     const book: TopOfBook = {
       exchange: this.id,
       symbol: this.symbol,
+      quote: this.quote,
       bids,
       asks,
       bestBid: bids[0][0],

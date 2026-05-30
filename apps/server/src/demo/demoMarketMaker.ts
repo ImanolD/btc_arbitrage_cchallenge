@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import type { BookLevel, TopOfBook } from "@arb/shared";
+import { quoteAssetOf } from "../exchanges/symbols.js";
 
 /**
  * Synthetic "demo" venue for the clearly-labeled demo/replay mode.
@@ -65,6 +66,7 @@ export class DemoMarketMaker extends EventEmitter {
     this.emit("book", {
       exchange: "demo",
       symbol: this.symbol,
+      quote: quoteAssetOf(this.symbol),
       bids: ladder(bestBid, -1),
       asks: ladder(bestAsk, +1),
       bestBid,

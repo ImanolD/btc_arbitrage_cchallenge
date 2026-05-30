@@ -1,6 +1,7 @@
 import type WebSocket from "ws";
-import type { BookLevel, ExchangeId } from "@arb/shared";
+import type { BookLevel, ExchangeId, QuoteAsset } from "@arb/shared";
 import { BaseConnector } from "./base.js";
+import { parsePair, quoteAssetOf } from "./symbols.js";
 
 interface OkxBookData {
   asks: string[][];
@@ -24,10 +25,12 @@ export class OkxConnector extends BaseConnector {
   protected readonly url = "wss://ws.okx.com:8443/ws/v5/public";
 
   private readonly instId: string;
+  private readonly quote: QuoteAsset;
 
   constructor(symbol: string) {
     super(symbol);
     this.instId = mapSymbol(symbol);
+    this.quote = quoteAssetOf(symbol);
   }
 
   protected onOpen(): void {
@@ -55,6 +58,7 @@ export class OkxConnector extends BaseConnector {
     this.emitBook({
       exchange: this.id,
       symbol: this.symbol,
+      quote: this.quote,
       bids,
       asks,
       bestBid: bids[0][0],
@@ -76,8 +80,6 @@ function toLevels(raw: string[][]): BookLevel[] {
 }
 
 function mapSymbol(symbol: string): string {
-  const s = symbol.toUpperCase();
-  if (s.endsWith("USDT")) return `${s.slice(0, -4)}-USDT`;
-  if (s.endsWith("USD")) return `${s.slice(0, -3)}-USD`;
-  return s;
+  const { base, quote } = parsePair(symbol);
+  return `${base}-${quote}`;
 }

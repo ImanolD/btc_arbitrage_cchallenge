@@ -10,7 +10,9 @@ function num(name: string, fallback: number): number {
 
 export const PORT = num("PORT", 4000);
 
-const enabledExchanges = (process.env.EXCHANGES ?? "binance,kraken,okx,bybit")
+const enabledExchanges = (
+  process.env.EXCHANGES ?? "binance,kraken,okx,bybit,kucoin,gate,bitstamp,bitfinex"
+)
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean) as ExchangeId[];
@@ -20,16 +22,26 @@ export const SYMBOL = process.env.SYMBOL ?? "BTCUSDT";
 export const DEMO_MODE_DEFAULT = (process.env.DEMO_MODE ?? "false") === "true";
 
 /**
- * Triangular arbitrage is monitored on a single liquid venue across three
- * pairs forming a cycle: BTC/USDT, ETH/BTC, ETH/USDT.
+ * Triangular arbitrage runs independently on each listed venue across the cycle
+ * BTC/USDT · ETH/BTC · ETH/USDT. Each venue gets its own three connectors, so
+ * any single-exchange venue with these three liquid pairs qualifies.
  */
-export const triangularConfig = {
-  exchange: "binance" as const,
-  notionalUsd: num("TRIANGULAR_NOTIONAL_USD", 10_000),
-  // [base/quote, intermediate/base, intermediate/quote]
-  pairs: ["BTC/USDT", "ETH/BTC", "ETH/USDT"],
-  // Binance stream symbols for each pair above.
-  symbols: { btcQuote: "BTCUSDT", interBase: "ETHBTC", interQuote: "ETHUSDT" },
+export const TRIANGULAR_EXCHANGES = (
+  process.env.TRIANGULAR_EXCHANGES ?? "binance,okx,bybit,kucoin,gate"
+)
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean) as ExchangeId[];
+
+export const TRIANGULAR_NOTIONAL_USD = num("TRIANGULAR_NOTIONAL_USD", 10_000);
+
+/** Display pairs (cycle order) and the generic stream symbols each connector
+ * maps to its own convention. Shared across all triangular venues. */
+export const TRIANGULAR_PAIRS = ["BTC/USDT", "ETH/BTC", "ETH/USDT"];
+export const TRIANGULAR_SYMBOLS = {
+  btcQuote: "BTCUSDT",
+  interBase: "ETHBTC",
+  interQuote: "ETHUSDT",
 };
 
 export const engineConfig: EngineConfig = {
@@ -40,11 +52,11 @@ export const engineConfig: EngineConfig = {
   maxSaneSpreadPct: num("MAX_SANE_SPREAD_PCT", 0.05),
   maxQuoteAgeMs: num("MAX_QUOTE_AGE_MS", 2_000),
   demoMode: DEMO_MODE_DEFAULT,
-  triangular: {
-    exchange: "binance",
-    pairs: ["BTC/USDT", "ETH/BTC", "ETH/USDT"],
-    notionalUsd: num("TRIANGULAR_NOTIONAL_USD", 10_000),
-  },
+  triangular: TRIANGULAR_EXCHANGES.map((exchange) => ({
+    exchange,
+    pairs: TRIANGULAR_PAIRS,
+    notionalUsd: TRIANGULAR_NOTIONAL_USD,
+  })),
 };
 
 export const startingBalances = {
@@ -64,5 +76,9 @@ export const feeModels: Record<ExchangeId, FeeModel> = {
   coinbase: { takerFee: 0.006, withdrawalFeeBtc: 0.0 },
   okx: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
   bybit: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
+  kucoin: { takerFee: 0.001, withdrawalFeeBtc: 0.0005 },
+  gate: { takerFee: 0.002, withdrawalFeeBtc: 0.001 },
+  bitstamp: { takerFee: 0.003, withdrawalFeeBtc: 0.0 },
+  bitfinex: { takerFee: 0.002, withdrawalFeeBtc: 0.0004 },
   demo: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
 };

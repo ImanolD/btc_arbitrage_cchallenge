@@ -1,6 +1,7 @@
 import type WebSocket from "ws";
-import type { BookLevel, ExchangeId } from "@arb/shared";
+import type { BookLevel, ExchangeId, QuoteAsset } from "@arb/shared";
 import { BaseConnector } from "./base.js";
+import { parsePair, quoteAssetOf } from "./symbols.js";
 
 interface KrakenLevel {
   price: number;
@@ -33,12 +34,14 @@ export class KrakenConnector extends BaseConnector {
   protected readonly url = "wss://ws.kraken.com/v2";
 
   private readonly krakenSymbol: string;
+  private readonly quote: QuoteAsset;
   private readonly bids = new Map<number, number>();
   private readonly asks = new Map<number, number>();
 
   constructor(symbol: string) {
     super(symbol);
     this.krakenSymbol = mapSymbol(symbol);
+    this.quote = quoteAssetOf(symbol);
   }
 
   protected onOpen(): void {
@@ -72,6 +75,7 @@ export class KrakenConnector extends BaseConnector {
     this.emitBook({
       exchange: this.id,
       symbol: this.symbol,
+      quote: this.quote,
       bids,
       asks,
       bestBid: bids[0][0],
@@ -98,11 +102,6 @@ function topLevels(side: Map<number, number>, dir: "asc" | "desc"): BookLevel[] 
 
 /** Map the generic engine symbol (e.g. BTCUSDT) to Kraken's `BASE/QUOTE`. */
 function mapSymbol(symbol: string): string {
-  const s = symbol.toUpperCase();
-  if (s === "BTCUSDT") return "BTC/USDT";
-  if (s === "BTCUSD") return "BTC/USD";
-  // Generic fallback: split a trailing USDT/USD quote.
-  if (s.endsWith("USDT")) return `${s.slice(0, -4)}/USDT`;
-  if (s.endsWith("USD")) return `${s.slice(0, -3)}/USD`;
-  return s;
+  const { base, quote } = parsePair(symbol);
+  return `${base}/${quote}`;
 }

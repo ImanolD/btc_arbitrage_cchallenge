@@ -13,11 +13,13 @@ import {
   DEMO_MODE_DEFAULT,
   PORT,
   SYMBOL,
+  TRIANGULAR_EXCHANGES,
+  TRIANGULAR_NOTIONAL_USD,
+  TRIANGULAR_PAIRS,
+  TRIANGULAR_SYMBOLS,
   engineConfig,
-  triangularConfig,
 } from "./config.js";
-import { createConnectors } from "./exchanges/index.js";
-import { BinanceConnector } from "./exchanges/binance.js";
+import { BaseConnector, createConnector, createConnectors } from "./exchanges/index.js";
 import { ArbitrageEngine } from "./engine/arbitrageEngine.js";
 import { TriangularEngine } from "./engine/triangularEngine.js";
 import { DemoMarketMaker } from "./demo/demoMarketMaker.js";
@@ -139,29 +141,35 @@ for (const connector of connectors) {
 
 engine.start();
 
-// Triangular arbitrage on a single venue (Binance) across three pairs. These
-// connectors feed ONLY the triangular engine — they are different symbols and
-// must not enter the cross-exchange book stream.
-const triangular = new TriangularEngine(
-  triangularConfig.exchange,
-  { btcQuote: "BTC/USDT", interBase: "ETH/BTC", interQuote: "ETH/USDT" },
-  triangularConfig.pairs,
-  triangularConfig.notionalUsd,
-  engineConfig.minNetProfitUsd,
-);
-triangular.on("triangular", (opp) => broadcast("triangular", opp));
-
+// Triangular arbitrage: one independent engine per venue across the cycle
+// BTC/USDT · ETH/BTC · ETH/USDT. Each venue gets its own three connectors,
+// which feed ONLY the triangular engine and never enter the cross-exchange
+// book stream (they are different symbols).
 const triRoutes: Array<[symbol: string, displayPair: string]> = [
-  [triangularConfig.symbols.btcQuote, "BTC/USDT"],
-  [triangularConfig.symbols.interBase, "ETH/BTC"],
-  [triangularConfig.symbols.interQuote, "ETH/USDT"],
+  [TRIANGULAR_SYMBOLS.btcQuote, TRIANGULAR_PAIRS[0]],
+  [TRIANGULAR_SYMBOLS.interBase, TRIANGULAR_PAIRS[1]],
+  [TRIANGULAR_SYMBOLS.interQuote, TRIANGULAR_PAIRS[2]],
 ];
-const triConnectors = triRoutes.map(([streamSymbol, displayPair]) => {
-  const c = new BinanceConnector(streamSymbol);
-  c.on("book", (book) => triangular.onBook(displayPair, book));
-  c.start();
-  return c;
-});
+
+const triConnectors: BaseConnector[] = [];
+for (const exchange of TRIANGULAR_EXCHANGES) {
+  const triangular = new TriangularEngine(
+    exchange,
+    { btcQuote: TRIANGULAR_PAIRS[0], interBase: TRIANGULAR_PAIRS[1], interQuote: TRIANGULAR_PAIRS[2] },
+    TRIANGULAR_PAIRS,
+    TRIANGULAR_NOTIONAL_USD,
+    engineConfig.minNetProfitUsd,
+  );
+  triangular.on("triangular", (opp) => broadcast("triangular", opp));
+
+  for (const [streamSymbol, displayPair] of triRoutes) {
+    const c = createConnector(exchange, streamSymbol);
+    if (!c) continue;
+    c.on("book", (book) => triangular.onBook(displayPair, book));
+    c.start();
+    triConnectors.push(c);
+  }
+}
 
 // Honour DEMO_MODE at boot (config starts true; flip via setDemoMode to start).
 if (DEMO_MODE_DEFAULT) {

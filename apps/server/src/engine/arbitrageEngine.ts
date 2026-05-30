@@ -109,6 +109,10 @@ export class ArbitrageEngine extends EventEmitter {
   }
 
   private evaluate(buyBook: TopOfBook, sellBook: TopOfBook, trigger: TopOfBook): void {
+    // Only compare venues quoting the same asset. A BTC/USD book and a BTC/USDT
+    // book differ by the USDT peg, so crossing them would surface a phantom
+    // "arbitrage" that is really FX risk, not a free spread.
+    if (buyBook.quote !== sellBook.quote) return;
     // Quick reject: only a gross cross (buy ask < sell bid) can be arbitrage.
     if (buyBook.bestAsk >= sellBook.bestBid) return;
 

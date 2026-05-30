@@ -17,15 +17,28 @@ interface Props {
 }
 
 export function MarketPanel({ books }: Props) {
-  const rows = Object.values(books);
+  const rows = useMemo(
+    () =>
+      Object.values(books).sort(
+        (a, b) =>
+          a.quote.localeCompare(b.quote) || a.exchange.localeCompare(b.exchange),
+      ),
+    [books],
+  );
 
   const bestCross = useMemo(() => {
-    let best: { buy: TopOfBook; sell: TopOfBook; edge: number } | null = null;
+    let best:
+      | { buy: TopOfBook; sell: TopOfBook; edge: number; quote: string }
+      | null = null;
     for (const a of rows) {
       for (const b of rows) {
         if (a.exchange === b.exchange) continue;
+        // Only compare venues quoting the same asset (USDT vs USD differ by peg).
+        if (a.quote !== b.quote) continue;
         const edge = b.bestBid - a.bestAsk; // buy on a, sell on b
-        if (best === null || edge > best.edge) best = { buy: a, sell: b, edge };
+        if (best === null || edge > best.edge) {
+          best = { buy: a, sell: b, edge, quote: a.quote };
+        }
       }
     }
     return best;
@@ -41,6 +54,7 @@ export function MarketPanel({ books }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead>Exchange</TableHead>
+              <TableHead>Quote</TableHead>
               <TableHead className="text-right">Bid</TableHead>
               <TableHead className="text-right">Ask</TableHead>
               <TableHead className="text-right">Spread</TableHead>
@@ -49,7 +63,7 @@ export function MarketPanel({ books }: Props) {
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-4 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="py-4 text-center text-muted-foreground">
                   Waiting for market data…
                 </TableCell>
               </TableRow>
@@ -57,6 +71,9 @@ export function MarketPanel({ books }: Props) {
             {rows.map((b) => (
               <TableRow key={b.exchange}>
                 <TableCell className="font-medium">{titleCase(b.exchange)}</TableCell>
+                <TableCell>
+                  <Badge variant="muted">{b.quote}</Badge>
+                </TableCell>
                 <TableCell className="text-right text-profit">{usd(b.bestBid)}</TableCell>
                 <TableCell className="text-right text-loss">{usd(b.bestAsk)}</TableCell>
                 <TableCell className="text-right text-muted-foreground">
@@ -85,7 +102,7 @@ export function MarketPanel({ books }: Props) {
                 }
               >
                 {bestCross.edge > 0 ? "+" : ""}
-                {num(bestCross.edge)} USDT
+                {num(bestCross.edge)} {bestCross.quote}
               </span>
             </div>
           </div>

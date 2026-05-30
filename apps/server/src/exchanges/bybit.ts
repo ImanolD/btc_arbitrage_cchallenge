@@ -1,6 +1,7 @@
 import type WebSocket from "ws";
-import type { BookLevel, ExchangeId } from "@arb/shared";
+import type { BookLevel, ExchangeId, QuoteAsset } from "@arb/shared";
 import { BaseConnector } from "./base.js";
+import { quoteAssetOf } from "./symbols.js";
 
 interface BybitBookData {
   s: string;
@@ -30,12 +31,14 @@ export class BybitConnector extends BaseConnector {
   protected readonly url = "wss://stream.bybit.com/v5/public/spot";
 
   private readonly topic: string;
+  private readonly quote: QuoteAsset;
   private readonly bids = new Map<number, number>();
   private readonly asks = new Map<number, number>();
 
   constructor(symbol: string) {
     super(symbol);
-    this.topic = `orderbook.${DEPTH}.${symbol.toUpperCase()}`;
+    this.topic = `orderbook.${DEPTH}.${symbol.toUpperCase().replace(/[-_/]/g, "")}`;
+    this.quote = quoteAssetOf(symbol);
   }
 
   protected onOpen(): void {
@@ -67,6 +70,7 @@ export class BybitConnector extends BaseConnector {
     this.emitBook({
       exchange: this.id,
       symbol: this.symbol,
+      quote: this.quote,
       bids,
       asks,
       bestBid: bids[0][0],
