@@ -9,9 +9,17 @@ import type {
   FeedStatus,
   ServerToClientEvents,
 } from "@arb/shared";
-import { DEMO_MODE_DEFAULT, PORT, SYMBOL, engineConfig } from "./config.js";
+import {
+  DEMO_MODE_DEFAULT,
+  PORT,
+  SYMBOL,
+  engineConfig,
+  triangularConfig,
+} from "./config.js";
 import { createConnectors } from "./exchanges/index.js";
+import { BinanceConnector } from "./exchanges/binance.js";
 import { ArbitrageEngine } from "./engine/arbitrageEngine.js";
+import { TriangularEngine } from "./engine/triangularEngine.js";
 import { DemoMarketMaker } from "./demo/demoMarketMaker.js";
 
 const app = express();
@@ -131,6 +139,30 @@ for (const connector of connectors) {
 
 engine.start();
 
+// Triangular arbitrage on a single venue (Binance) across three pairs. These
+// connectors feed ONLY the triangular engine — they are different symbols and
+// must not enter the cross-exchange book stream.
+const triangular = new TriangularEngine(
+  triangularConfig.exchange,
+  { btcQuote: "BTC/USDT", interBase: "ETH/BTC", interQuote: "ETH/USDT" },
+  triangularConfig.pairs,
+  triangularConfig.notionalUsd,
+  engineConfig.minNetProfitUsd,
+);
+triangular.on("triangular", (opp) => broadcast("triangular", opp));
+
+const triRoutes: Array<[symbol: string, displayPair: string]> = [
+  [triangularConfig.symbols.btcQuote, "BTC/USDT"],
+  [triangularConfig.symbols.interBase, "ETH/BTC"],
+  [triangularConfig.symbols.interQuote, "ETH/USDT"],
+];
+const triConnectors = triRoutes.map(([streamSymbol, displayPair]) => {
+  const c = new BinanceConnector(streamSymbol);
+  c.on("book", (book) => triangular.onBook(displayPair, book));
+  c.start();
+  return c;
+});
+
 // Honour DEMO_MODE at boot (config starts true; flip via setDemoMode to start).
 if (DEMO_MODE_DEFAULT) {
   engineConfig.demoMode = false;
@@ -145,6 +177,7 @@ server.listen(PORT, () => {
 function shutdown() {
   console.log("\nshutting down…");
   for (const c of connectors) c.stop();
+  for (const c of triConnectors) c.stop();
   demo.stop();
   engine.stop();
   io.close();

@@ -73,6 +73,42 @@ export interface Opportunity {
   detectedAt: number;
 }
 
+/** One leg of a triangular cycle (a single trade on one pair). */
+export interface TriangularLeg {
+  pair: string;
+  side: OrderSide;
+  price: number;
+}
+
+/**
+ * A triangular arbitrage cycle on a single exchange: convert quote → base →
+ * intermediate → quote (or the reverse) and check whether you end with more
+ * quote currency than you started, net of three trading fees.
+ */
+export interface TriangularOpportunity {
+  id: string;
+  exchange: ExchangeId;
+  direction: "forward" | "reverse";
+  /** Asset path, e.g. ["USDT","BTC","ETH","USDT"]. */
+  path: string[];
+  legs: TriangularLeg[];
+  startAmount: number;
+  endAmount: number;
+  grossProfit: number;
+  netProfit: number;
+  netProfitPct: number;
+  actionable: boolean;
+  reason?: string;
+  detectedAt: number;
+}
+
+export interface TriangularConfig {
+  exchange: ExchangeId;
+  /** Display pairs in cycle order, e.g. ["BTC/USDT","ETH/BTC","ETH/USDT"]. */
+  pairs: string[];
+  notionalUsd: number;
+}
+
 /** End-to-end latency breakdown for a single detection. */
 export interface LatencySample {
   /** receivedAt - exchangeTime (network + exchange). Null if no exchange ts. */
@@ -150,6 +186,8 @@ export interface EngineConfig {
   maxQuoteAgeMs: number;
   /** Whether the synthetic demo/replay injector is currently active. */
   demoMode: boolean;
+  /** Triangular-arbitrage monitoring config, if enabled. */
+  triangular: TriangularConfig | null;
 }
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
@@ -166,6 +204,7 @@ export interface ServerToClientEvents {
   config: (config: EngineConfig) => void;
   book: (book: TopOfBook) => void;
   opportunity: (opp: Opportunity) => void;
+  triangular: (opp: TriangularOpportunity) => void;
   trade: (trade: SimulatedTrade) => void;
   portfolio: (stats: PortfolioStats) => void;
   latency: (stats: LatencyStats) => void;

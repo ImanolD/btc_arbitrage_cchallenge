@@ -19,6 +19,19 @@ export const SYMBOL = process.env.SYMBOL ?? "BTCUSDT";
 
 export const DEMO_MODE_DEFAULT = (process.env.DEMO_MODE ?? "false") === "true";
 
+/**
+ * Triangular arbitrage is monitored on a single liquid venue across three
+ * pairs forming a cycle: BTC/USDT, ETH/BTC, ETH/USDT.
+ */
+export const triangularConfig = {
+  exchange: "binance" as const,
+  notionalUsd: num("TRIANGULAR_NOTIONAL_USD", 10_000),
+  // [base/quote, intermediate/base, intermediate/quote]
+  pairs: ["BTC/USDT", "ETH/BTC", "ETH/USDT"],
+  // Binance stream symbols for each pair above.
+  symbols: { btcQuote: "BTCUSDT", interBase: "ETHBTC", interQuote: "ETHUSDT" },
+};
+
 export const engineConfig: EngineConfig = {
   symbol: SYMBOL,
   exchanges: enabledExchanges,
@@ -27,6 +40,11 @@ export const engineConfig: EngineConfig = {
   maxSaneSpreadPct: num("MAX_SANE_SPREAD_PCT", 0.05),
   maxQuoteAgeMs: num("MAX_QUOTE_AGE_MS", 2_000),
   demoMode: DEMO_MODE_DEFAULT,
+  triangular: {
+    exchange: "binance",
+    pairs: ["BTC/USDT", "ETH/BTC", "ETH/USDT"],
+    notionalUsd: num("TRIANGULAR_NOTIONAL_USD", 10_000),
+  },
 };
 
 export const startingBalances = {

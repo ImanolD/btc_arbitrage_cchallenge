@@ -8,6 +8,7 @@ import type {
   PortfolioStats,
   SimulatedTrade,
   TopOfBook,
+  TriangularOpportunity,
 } from "@arb/shared";
 import { createSocket, type ArbSocket } from "@/lib/socket";
 
@@ -22,6 +23,7 @@ export interface ArbState {
   portfolio: PortfolioStats | null;
   latency: LatencyStats | null;
   feeds: FeedStatus[];
+  triangular: TriangularOpportunity[];
 }
 
 const initialState: ArbState = {
@@ -33,6 +35,7 @@ const initialState: ArbState = {
   portfolio: null,
   latency: null,
   feeds: [],
+  triangular: [],
 };
 
 /**
@@ -92,6 +95,13 @@ export function useArbStream(): ArbStream {
       setState((p) => ({
         ...p,
         trades: [trade, ...p.trades].slice(0, MAX_FEED_ITEMS),
+      })),
+    );
+
+    socket.on("triangular", (opp: TriangularOpportunity) =>
+      setState((p) => ({
+        ...p,
+        triangular: [opp, ...p.triangular].slice(0, MAX_FEED_ITEMS),
       })),
     );
 

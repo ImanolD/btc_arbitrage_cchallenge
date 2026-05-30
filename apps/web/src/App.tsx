@@ -6,6 +6,7 @@ import { OpportunityFeed } from "@/components/OpportunityFeed";
 import { TradeBlotter } from "@/components/TradeBlotter";
 import { EquityChart } from "@/components/EquityChart";
 import { LatencyPanel } from "@/components/LatencyPanel";
+import { TriangularPanel } from "@/components/TriangularPanel";
 import { DemoBanner } from "@/components/DemoBanner";
 
 export default function App() {
@@ -31,8 +32,9 @@ export default function App() {
             <LatencyPanel latency={state.latency} />
           </div>
 
-          <div className="flex min-h-[360px] flex-col lg:col-span-2">
+          <div className="flex min-h-[360px] flex-col gap-3 lg:col-span-2">
             <OpportunityFeed opportunities={state.opportunities} />
+            <TriangularPanel triangular={state.triangular} config={state.config} />
           </div>
         </div>
 
