@@ -24,6 +24,3 @@ yarn-error.log*
 .idea/
 .vscode/
 *.swp
-
-# Bun
-bun.lockb
