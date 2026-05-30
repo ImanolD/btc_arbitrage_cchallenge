@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import type { FiloLang, FiloMessage } from "@arb/shared";
 import { FilobotLogo } from "@/components/FilobotLogo";
 import { OTHER_LANG, useLang, type StringKey } from "@/lib/i18n";
@@ -31,6 +32,8 @@ export function FiloChat({ messages, onAsk }: Props) {
   const [lastSeen, setLastSeen] = useState(() => Date.now());
   const [nudge, setNudge] = useState(false);
   const [waLink, setWaLink] = useState<string | null>(null);
+  const [waKeyword, setWaKeyword] = useState<string | null>(null);
+  const [waQrOpen, setWaQrOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Discover whether the WhatsApp transport is configured on the server.
@@ -39,7 +42,10 @@ export function FiloChat({ messages, onAsk }: Props) {
     fetch(`${SERVER_URL}/api/whatsapp/info`)
       .then((r) => (r.ok ? r.json() : null))
       .then((info) => {
-        if (alive && info?.enabled && info.link) setWaLink(info.link as string);
+        if (alive && info?.enabled && info.link) {
+          setWaLink(info.link as string);
+          if (info.keyword) setWaKeyword(info.keyword as string);
+        }
       })
       .catch(() => {});
     return () => {
@@ -153,13 +159,14 @@ export function FiloChat({ messages, onAsk }: Props) {
             {pending && <Typing label={t("chat.typing")} />}
           </div>
 
-          {/* WhatsApp opt-in (only when the server has the transport configured) */}
+          {/* WhatsApp opt-in (only when the server has the transport configured).
+              Opens a QR so judges on a desktop without WhatsApp can scan with
+              their phone — and that's where the message should come from anyway. */}
           {waLink && (
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noreferrer"
-              className="flex flex-none items-center gap-2.5 border-t border-white/[0.06] bg-[#25D366]/[0.08] px-3 py-2.5 transition-colors hover:bg-[#25D366]/[0.14]"
+            <button
+              type="button"
+              onClick={() => setWaQrOpen(true)}
+              className="flex w-full flex-none items-center gap-2.5 border-t border-white/[0.06] bg-[#25D366]/[0.08] px-3 py-2.5 text-left transition-colors hover:bg-[#25D366]/[0.14]"
             >
               <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-[#25D366]/20 text-[#25D366]">
                 <MessageCircle className="h-4 w-4" />
@@ -172,7 +179,7 @@ export function FiloChat({ messages, onAsk }: Props) {
                   {t("chat.whatsapp.sub")}
                 </span>
               </span>
-            </a>
+            </button>
           )}
 
           {/* Suggestions — always available, never disappear on send */}
@@ -214,6 +221,71 @@ export function FiloChat({ messages, onAsk }: Props) {
           </form>
           </div>
         </>
+      )}
+
+      {/* WhatsApp QR — scan with a phone when WhatsApp isn't on this device */}
+      {waQrOpen && waLink && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
+          onClick={() => setWaQrOpen(false)}
+        >
+          <div
+            className="relative flex w-full flex-col items-center overflow-hidden rounded-t-2xl border border-white/[0.08] bg-card px-6 pb-7 pt-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] sm:max-w-sm sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 flex-none rounded-full bg-white/15 sm:hidden" />
+            <button
+              type="button"
+              onClick={() => setWaQrOpen(false)}
+              className="absolute right-3 top-3 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={t("chat.send")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="mb-1 flex items-center gap-2 text-[#25D366]">
+              <MessageCircle className="h-5 w-5" />
+              <span className="text-sm font-bold tracking-wide text-foreground">
+                {t("chat.whatsapp.qrTitle")}
+              </span>
+            </div>
+            <p className="mb-4 text-center text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("chat.whatsapp.scan")}
+            </p>
+
+            <div className="rounded-2xl bg-white p-3 shadow-inner">
+              <QRCodeSVG value={waLink} size={184} level="M" marginSize={0} />
+            </div>
+
+            <p className="mt-4 max-w-[260px] text-center text-[12px] leading-relaxed text-muted-foreground">
+              {t("chat.whatsapp.qrHint")}
+              {waKeyword && (
+                <>
+                  {" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    «{waKeyword}»
+                  </span>
+                </>
+              )}
+            </p>
+
+            <div className="my-4 flex w-full items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground/60">
+              <span className="h-px flex-1 bg-white/[0.08]" />
+              {t("chat.whatsapp.or")}
+              <span className="h-px flex-1 bg-white/[0.08]" />
+            </div>
+
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-[13px] font-semibold text-black transition-opacity hover:opacity-90"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {t("chat.whatsapp.open")}
+            </a>
+          </div>
+        </div>
       )}
 
       {/* Corner: nudge + launcher (hidden behind the sheet on mobile when open) */}

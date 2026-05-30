@@ -1,5 +1,14 @@
-import "dotenv/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
 import type { DecisionMode, EngineConfig, ExchangeId, FeeModel } from "@arb/shared";
+
+// Load env from the monorepo root first (where .env lives), then fall back to
+// the current working directory. dotenv never overrides already-set vars, so
+// real platform env (Railway/Render/etc.) always wins on the live deploy.
+const here = path.dirname(fileURLToPath(import.meta.url)); // apps/server/src
+loadEnv({ path: path.resolve(here, "../../../.env") }); // repo root
+loadEnv();
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];

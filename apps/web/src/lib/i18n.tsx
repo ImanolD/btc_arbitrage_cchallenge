@@ -148,6 +148,12 @@ const STRINGS = {
     "chat.nudge": "👋 ¿Dudas? Pregúntame lo que sea.",
     "chat.whatsapp": "Recibir alertas por WhatsApp",
     "chat.whatsapp.sub": "Chatea con Filo y recibe avisos en vivo",
+    "chat.whatsapp.qrTitle": "Chatea con Filo por WhatsApp",
+    "chat.whatsapp.scan": "Escanéalo con tu teléfono",
+    "chat.whatsapp.qrHint":
+      "Apunta la cámara: se abrirá un chat con el mensaje listo para enviar.",
+    "chat.whatsapp.or": "o",
+    "chat.whatsapp.open": "Abrir WhatsApp en este equipo",
     "nav.settings": "Ajustes",
     "settings.title": "Ajustes del motor",
     "settings.subtitle":
@@ -303,6 +309,12 @@ const STRINGS = {
     "chat.nudge": "👋 Questions? Ask me anything.",
     "chat.whatsapp": "Get alerts on WhatsApp",
     "chat.whatsapp.sub": "Chat with Filo and get live pings",
+    "chat.whatsapp.qrTitle": "Chat with Filo on WhatsApp",
+    "chat.whatsapp.scan": "Scan it with your phone",
+    "chat.whatsapp.qrHint":
+      "Point your camera: a chat opens with the message ready to send.",
+    "chat.whatsapp.or": "or",
+    "chat.whatsapp.open": "Open WhatsApp on this device",
     "nav.settings": "Settings",
     "settings.title": "Engine settings",
     "settings.subtitle":

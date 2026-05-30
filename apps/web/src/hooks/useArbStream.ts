@@ -79,12 +79,16 @@ export function useArbStream(): ArbStream {
     const trimmed = text.trim();
     if (!trimmed) return;
     const id = crypto.randomUUID();
+    const userMsg: FiloMessage = {
+      id,
+      role: "user",
+      kind: "answer",
+      text: { [lang]: trimmed },
+      ts: Date.now(),
+    };
     setState((p) => ({
       ...p,
-      filo: [
-        ...p.filo,
-        { id, role: "user", kind: "answer", text: { [lang]: trimmed }, ts: Date.now() },
-      ].slice(-MAX_FILO_ITEMS),
+      filo: [...p.filo, userMsg].slice(-MAX_FILO_ITEMS),
     }));
     socketRef.current?.emit("filoAsk", { id, text: trimmed, lang });
   }, []);

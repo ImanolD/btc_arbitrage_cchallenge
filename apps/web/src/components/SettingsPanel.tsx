@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { RotateCcw, X } from "lucide-react";
-import type { DecisionMode, EngineConfig, EngineConfigPatch } from "@arb/shared";
+import type { EngineConfig, EngineConfigPatch } from "@arb/shared";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
