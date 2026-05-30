@@ -1,5 +1,5 @@
 import "dotenv/config";
-import type { EngineConfig, ExchangeId, FeeModel } from "@arb/shared";
+import type { DecisionMode, EngineConfig, ExchangeId, FeeModel } from "@arb/shared";
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -61,6 +61,11 @@ export const engineConfig: EngineConfig = {
     tauMs: num("EV_TAU_MS", 400),
     adverseBps: num("EV_ADVERSE_BPS", 5),
     minEvUsd: num("EV_MIN_USD", 0),
+  },
+  decisionMode: (process.env.DECISION_MODE === "spread" ? "spread" : "ev") as DecisionMode,
+  filo: {
+    digestMs: num("FILO_DIGEST_MS", 75_000),
+    narrate: (process.env.FILO_NARRATE ?? "true") !== "false",
   },
 };
 

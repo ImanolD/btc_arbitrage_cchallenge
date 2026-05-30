@@ -212,6 +212,22 @@ export interface PercentileStats {
   count: number;
 }
 
+/**
+ * How the engine decides an opportunity is actionable:
+ * - `ev`: fire only when expected value > minimum (anticipatory; the default).
+ * - `spread`: fire on a positive net spread that clears the risk gate (naive
+ *   threshold). Exposed so a judge can flip live and see EV's value.
+ */
+export type DecisionMode = "ev" | "spread";
+
+/** Tunable Filo (chat copilot) behaviour, echoed to the dashboard. */
+export interface FiloConfig {
+  /** Period of Filo's unprompted session digest (ms); 0 disables the digest. */
+  digestMs: number;
+  /** Whether Filo posts unprompted narrations at all (answers are unaffected). */
+  narrate: boolean;
+}
+
 /** Engine configuration echoed to the dashboard. */
 export interface EngineConfig {
   symbol: string;
@@ -226,6 +242,21 @@ export interface EngineConfig {
   triangular: TriangularConfig[];
   /** Expected-value model parameters (echoed for dashboard transparency). */
   ev: EvConfig;
+  /** Active decision rule (EV vs naive spread threshold). */
+  decisionMode: DecisionMode;
+  /** Filo chat copilot behaviour. */
+  filo: FiloConfig;
+}
+
+/**
+ * Live-tunable subset of the engine config, sent from the dashboard. Every
+ * field is optional; the server clamps values to safe ranges before applying.
+ */
+export interface EngineConfigPatch {
+  decisionMode?: DecisionMode;
+  minNetProfitUsd?: number;
+  ev?: Partial<EvConfig>;
+  filo?: Partial<FiloConfig>;
 }
 
 /** Parameters of the transparent expected-value / survival-probability model. */
@@ -353,4 +384,6 @@ export interface ClientToServerEvents {
   setDemo: (enabled: boolean) => void;
   /** Ask Filo a free-form question; the answer comes back as a `filo` event. */
   filoAsk: (payload: { id: string; text: string; lang: FiloLang }) => void;
+  /** Live-tune engine + Filo settings; server echoes the new `config`. */
+  updateConfig: (patch: EngineConfigPatch) => void;
 }

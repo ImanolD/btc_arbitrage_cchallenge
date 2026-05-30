@@ -10,7 +10,7 @@
 - **La ganancia neta se calcula recorriendo el book.** Una operación que se ve bien en el *top-of-book* a menudo se vuelve negativa dos niveles más abajo. Nunca asumimos que el mejor precio llena todo el tamaño.
 - **Modelo de inventario, no transferencias por operación.** Las mesas de arbitraje reales pre-posicionan capital en ambos venues — la liquidación on-chain de BTC (~10–60 min) mataría toda oportunidad. Los balances se desvían con el tiempo (un venue acumula BTC, el otro USD), y mostramos esa desviación en lugar de esconderla tras transferencias instantáneas ficticias.
 - **Costo de retiro amortizado, no por operación.** El *withdrawal fee* es un costo de **rebalanceo**: solo se cobra cuando la desviación de inventario supera un umbral y obliga a una transferencia on-chain. Lo amortizamos entre las operaciones y lo mostramos como "costo de rebalanceo / operación" — restarlo en cada trade descartaría oportunidades reales.
-- **Decisión por valor esperado (EV), no por umbral.** No disparamos cuando "spread > X": estimamos la **probabilidad de que el cruce sobreviva** nuestra ventana de latencia (heurística transparente sobre decaimiento por latencia, magnitud del *edge* e *imbalance* del book) y ejecutamos solo si `EV = P(supervivencia) × neto − (1−P) × costo_adverso > 0`. El dashboard muestra P(supervivencia) y EV en vivo.
+- **Decisión por valor esperado (EV), no por umbral.** No disparamos cuando "spread > X": estimamos la **probabilidad de que el cruce sobreviva** nuestra ventana de latencia (heurística transparente sobre decaimiento por latencia, magnitud del *edge* e *imbalance* del book) y ejecutamos solo si `EV = P(supervivencia) × neto − (1−P) × costo_adverso > 0`. El dashboard muestra P(supervivencia) y EV en vivo, y el modo de decisión (EV vs. umbral de spread) es **conmutable en vivo** desde el panel de Ajustes — ver abajo.
 - **Priorización por valor esperado.** En cada tick se ejecutan las oportunidades accionables de mayor a menor EV (no "la primera que aparece"), asignando el capital a la mejor primero; el dashboard resalta la "mejor ejecutable ahora".
 - **Compuerta de riesgo antes de ejecutar.** Guarda de feed obsoleto, guarda de spread inverosímil (*glitch* de datos) y umbral mínimo de ganancia neta median entre "detectado" y "ejecutado".
 
@@ -100,6 +100,17 @@ Actívalo en vivo desde el dashboard (botón **Demo**), o arranca con él encend
 DEMO_MODE=true bun run dev:server
 ```
 
+## Panel de estrategia en vivo: EV vs spread
+
+La tesis central del proyecto — **decidir por valor esperado, no por umbral de spread** — no se queda en el papel: es **interactiva**. Desde el panel de **Ajustes** (engranaje en la barra de estado, que además muestra el modo activo) puedes conmutar en vivo entre:
+
+- **Valor esperado (EV):** ejecuta solo si `EV = P(supervivencia) × neto − (1−P) × costo_adverso` supera el mínimo. Anticipatorio: descarta cruces frágiles aunque su neto sea positivo.
+- **Spread neto (umbral):** modo ingenuo — ejecuta con cualquier spread neto positivo que pase la compuerta de riesgo.
+
+EV y P(supervivencia) se calculan y muestran **en ambos modos**, así que el efecto del cambio es inmediato y visible en el feed: al pasar a `spread` empiezan a dispararse cruces que EV rechazaba por frágiles. Es la diferencia "bot promedio vs. mesa real" hecha demostración en vivo, no solo descrita.
+
+El mismo panel afina los parámetros del modelo (`τ` de latencia, costo adverso, EV mínimo, ganancia neta mínima) y la cadencia de Filo (frecuencia del resumen y silenciar/activar narraciones). Todos los cambios viajan por Socket.IO, se **validan y acotan** en el servidor y se reflejan al instante en todos los clientes conectados.
+
 ## Filo: copiloto conversacional 🐾
 
 El dashboard incluye a **Filo**, un asistente de chat con la personalidad de la mascota del proyecto (una gata real — ver [`whyfilo.md`](whyfilo.md)). Filo cumple la idea de "IA **fuera** del hot path": **narra e interpreta**, nunca decide los trades.
@@ -147,9 +158,12 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 | `EV_TAU_MS` | `400` | Constante de decaimiento por latencia del modelo de supervivencia |
 | `EV_ADVERSE_BPS` | `5` | Costo de selección adversa (bps) si el edge colapsa |
 | `EV_MIN_USD` | `0` | Valor esperado mínimo para ejecutar |
+| `DECISION_MODE` | `ev` | Regla de decisión: `ev` (valor esperado) o `spread` (umbral de spread neto). También conmutable en vivo desde el panel de Ajustes |
 | `DEMO_MODE` | `false` | Arrancar con el inyector demo/replay encendido |
 | `ANTHROPIC_API_KEY` | — | (Opcional) Habilita las respuestas libres de Filo vía Claude; sin ella, Filo usa solo sus respuestas deterministas |
 | `FILO_MODEL` | `claude-3-5-haiku-latest` | Modelo de Claude para las respuestas libres de Filo |
+| `FILO_DIGEST_MS` | `75000` | Periodo (ms) del resumen no solicitado de Filo; `0` lo desactiva. Ajustable en vivo |
+| `FILO_NARRATE` | `true` | Si Filo emite narraciones no solicitadas (`false` las silencia; las respuestas a preguntas no se ven afectadas). Ajustable en vivo |
 
 ## Despliegue
 

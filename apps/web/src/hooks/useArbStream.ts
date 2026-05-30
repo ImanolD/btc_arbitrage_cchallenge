@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   EngineConfig,
+  EngineConfigPatch,
   ExchangeId,
   FeedStatus,
   FiloLang,
@@ -55,6 +56,7 @@ const initialState: ArbState = {
 export interface ArbStream extends ArbState {
   setDemo: (enabled: boolean) => void;
   askFilo: (text: string, lang: FiloLang) => void;
+  updateConfig: (patch: EngineConfigPatch) => void;
 }
 
 export function useArbStream(): ArbStream {
@@ -65,6 +67,10 @@ export function useArbStream(): ArbStream {
 
   const setDemo = useCallback((enabled: boolean) => {
     socketRef.current?.emit("setDemo", enabled);
+  }, []);
+
+  const updateConfig = useCallback((patch: EngineConfigPatch) => {
+    socketRef.current?.emit("updateConfig", patch);
   }, []);
 
   // Optimistically render the user's bubble, then send; Filo's reply arrives
@@ -157,7 +163,7 @@ export function useArbStream(): ArbStream {
     };
   }, []);
 
-  return { ...state, setDemo, askFilo };
+  return { ...state, setDemo, askFilo, updateConfig };
 }
 
 export type { ExchangeId };

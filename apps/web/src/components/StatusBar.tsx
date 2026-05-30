@@ -1,4 +1,4 @@
-import { Activity, BarChart3, FlaskConical, HelpCircle, Radio, Route } from "lucide-react";
+import { Activity, BarChart3, FlaskConical, HelpCircle, Radio, Route, SlidersHorizontal } from "lucide-react";
 import type { EngineConfig, FeedStatus, LatencyStats } from "@arb/shared";
 import { Badge } from "@/components/ui/badge";
 import { FilobotLogo } from "@/components/FilobotLogo";
@@ -15,6 +15,7 @@ interface Props {
   onOpenGuide: () => void;
   onStartTour: () => void;
   onOpenStats: () => void;
+  onOpenSettings: () => void;
 }
 
 export function StatusBar({
@@ -26,6 +27,7 @@ export function StatusBar({
   onOpenGuide,
   onStartTour,
   onOpenStats,
+  onOpenSettings,
 }: Props) {
   const { lang, setLang, t } = useLang();
   const demoOn = config?.demoMode ?? false;
@@ -112,6 +114,17 @@ export function StatusBar({
         >
           <FlaskConical className="h-3.5 w-3.5" />
           Demo {demoOn ? "ON" : "OFF"}
+        </button>
+
+        <button
+          id="tour-settings"
+          type="button"
+          onClick={onOpenSettings}
+          className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          title={t("nav.settings")}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          {config ? (config.decisionMode === "ev" ? "EV" : "Spread") : t("nav.settings")}
         </button>
 
         <button

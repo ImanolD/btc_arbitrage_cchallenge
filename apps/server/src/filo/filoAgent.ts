@@ -21,9 +21,6 @@ const THROTTLE = {
   skip: 22_000,
 } as const;
 
-/** How often Filo posts an unprompted digest of the session (ms). */
-const DIGEST_MS = 75_000;
-
 /** Cap on the in-memory message backlog replayed to new clients. */
 const HISTORY_CAP = 40;
 
@@ -65,11 +62,23 @@ export class FiloAgent extends EventEmitter {
   }
 
   start(): void {
-    this.digestTimer = setInterval(() => this.emitDigest(), DIGEST_MS);
+    this.scheduleDigest();
   }
 
   stop(): void {
     if (this.digestTimer) clearInterval(this.digestTimer);
+  }
+
+  /** Re-read live config (digest cadence). Call after the config is mutated. */
+  applyConfig(): void {
+    this.scheduleDigest();
+  }
+
+  private scheduleDigest(): void {
+    if (this.digestTimer) clearInterval(this.digestTimer);
+    this.digestTimer = null;
+    const ms = this.config.filo.digestMs;
+    if (ms > 0) this.digestTimer = setInterval(() => this.emitDigest(), ms);
   }
 
   /** Recent messages, for replaying to a freshly-connected dashboard. */
@@ -346,6 +355,9 @@ export class FiloAgent extends EventEmitter {
   }
 
   private push(kind: FiloMessage["kind"], text: Partial<Bilingual>, tone: FiloMessage["tone"]): void {
+    // Unprompted narrations are suppressed when narration is muted; answers and
+    // the greeting don't go through here, so they're always delivered.
+    if (!this.config.filo.narrate) return;
     const msg: FiloMessage = { id: randomUUID(), role: "filo", kind, text, tone, ts: Date.now() };
     this.record(msg);
     this.emit("message", msg);

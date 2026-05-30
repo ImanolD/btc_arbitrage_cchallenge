@@ -11,6 +11,7 @@ import { TriangularPanel } from "@/components/TriangularPanel";
 import { DemoBanner } from "@/components/DemoBanner";
 import { GuideOverlay } from "@/components/GuideOverlay";
 import { StatsPanel } from "@/components/StatsPanel";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { FiloChat } from "@/components/FiloChat";
 import { useLang } from "@/lib/i18n";
 import { startTour } from "@/lib/tour";
@@ -22,6 +23,7 @@ export default function App() {
   const { t } = useLang();
   const [guideOpen, setGuideOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Auto-open the guide on first visit so judges aren't dropped into a cold UI.
   useEffect(() => {
@@ -56,6 +58,12 @@ export default function App() {
         stats={state.stats}
         onClose={() => setStatsOpen(false)}
       />
+      <SettingsPanel
+        open={settingsOpen}
+        config={state.config}
+        onUpdate={state.updateConfig}
+        onClose={() => setSettingsOpen(false)}
+      />
       <StatusBar
         connected={state.connected}
         config={state.config}
@@ -65,6 +73,7 @@ export default function App() {
         onOpenGuide={() => setGuideOpen(true)}
         onStartTour={launchTour}
         onOpenStats={() => setStatsOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       {state.config?.demoMode && <DemoBanner />}
 

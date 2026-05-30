@@ -227,10 +227,17 @@ export class ArbitrageEngine extends EventEmitter {
       this.config.ev,
     );
 
-    // An opportunity must clear the risk gate AND have positive expected value.
+    // An opportunity must clear the risk gate. In EV mode it must ALSO clear the
+    // expected-value bar; in spread mode the positive net spread (already
+    // enforced by the risk gate's min-net-profit) is enough. EV is still
+    // computed in both modes so the dashboard always shows P(surv)/EV.
     let actionable = decision.ok;
     let reason = decision.reason;
-    if (actionable && ev.expectedValueUsd <= this.config.ev.minEvUsd) {
+    if (
+      this.config.decisionMode === "ev" &&
+      actionable &&
+      ev.expectedValueUsd <= this.config.ev.minEvUsd
+    ) {
       actionable = false;
       reason = `EV no positivo (supervivencia ${(ev.survivalProb * 100).toFixed(0)}%)`;
     }

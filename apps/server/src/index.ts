@@ -5,6 +5,7 @@ import { Server, type Socket } from "socket.io";
 import type {
   ClientToServerEvents,
   ConnectionStatus,
+  EngineConfigPatch,
   ExchangeId,
   FeedStatus,
   ServerToClientEvents,
@@ -91,6 +92,8 @@ io.on("connection", (socket: ArbSocket) => {
 
   socket.on("setDemo", (enabled: boolean) => setDemoMode(enabled));
 
+  socket.on("updateConfig", (patch) => applyConfigPatch(patch));
+
   // A question only concerns the asker; the reply goes back to that socket.
   socket.on("filoAsk", (payload) => {
     if (!payload || typeof payload.text !== "string") return;
@@ -112,6 +115,55 @@ demo.on("book", (book) => {
   const fs = feedStatus.get("demo");
   if (fs) fs.lastUpdate = book.receivedAt;
 });
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+/**
+ * Apply a live config patch from the dashboard. Every field is validated and
+ * clamped to a safe range before mutating the shared `engineConfig` (which the
+ * engine, risk manager and Filo all read by reference), then re-broadcast.
+ */
+function applyConfigPatch(patch: EngineConfigPatch): void {
+  if (!patch || typeof patch !== "object") return;
+
+  if (patch.decisionMode === "ev" || patch.decisionMode === "spread") {
+    engineConfig.decisionMode = patch.decisionMode;
+  }
+  if (typeof patch.minNetProfitUsd === "number" && Number.isFinite(patch.minNetProfitUsd)) {
+    engineConfig.minNetProfitUsd = clamp(patch.minNetProfitUsd, 0, 1_000_000);
+  }
+  if (patch.ev) {
+    const { tauMs, adverseBps, minEvUsd } = patch.ev;
+    if (typeof tauMs === "number" && Number.isFinite(tauMs)) {
+      engineConfig.ev.tauMs = clamp(tauMs, 10, 60_000);
+    }
+    if (typeof adverseBps === "number" && Number.isFinite(adverseBps)) {
+      engineConfig.ev.adverseBps = clamp(adverseBps, 0, 1_000);
+    }
+    if (typeof minEvUsd === "number" && Number.isFinite(minEvUsd)) {
+      engineConfig.ev.minEvUsd = clamp(minEvUsd, -1_000_000, 1_000_000);
+    }
+  }
+  if (patch.filo) {
+    if (typeof patch.filo.narrate === "boolean") {
+      engineConfig.filo.narrate = patch.filo.narrate;
+    }
+    if (typeof patch.filo.digestMs === "number" && Number.isFinite(patch.filo.digestMs)) {
+      engineConfig.filo.digestMs =
+        patch.filo.digestMs <= 0 ? 0 : clamp(patch.filo.digestMs, 5_000, 600_000);
+    }
+    filo.applyConfig();
+  }
+
+  broadcast("config", engineConfig);
+  console.log(
+    `[config] mode=${engineConfig.decisionMode} minNet=${engineConfig.minNetProfitUsd} ` +
+      `ev(tau=${engineConfig.ev.tauMs},adv=${engineConfig.ev.adverseBps},min=${engineConfig.ev.minEvUsd}) ` +
+      `filo(digest=${engineConfig.filo.digestMs},narrate=${engineConfig.filo.narrate})`,
+  );
+}
 
 function setDemoMode(enabled: boolean): void {
   if (enabled === engineConfig.demoMode) return;
