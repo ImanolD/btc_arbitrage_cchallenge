@@ -1,8 +1,9 @@
-import { Activity, FlaskConical, Radio, Zap } from "lucide-react";
+import { Activity, FlaskConical, HelpCircle, Radio, Route, Zap } from "lucide-react";
 import type { EngineConfig, FeedStatus, LatencyStats } from "@arb/shared";
 import { Badge } from "@/components/ui/badge";
 import { ms, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 interface Props {
   connected: boolean;
@@ -10,9 +11,20 @@ interface Props {
   feeds: FeedStatus[];
   latency: LatencyStats | null;
   onToggleDemo: (enabled: boolean) => void;
+  onOpenGuide: () => void;
+  onStartTour: () => void;
 }
 
-export function StatusBar({ connected, config, feeds, latency, onToggleDemo }: Props) {
+export function StatusBar({
+  connected,
+  config,
+  feeds,
+  latency,
+  onToggleDemo,
+  onOpenGuide,
+  onStartTour,
+}: Props) {
+  const { lang, setLang, t } = useLang();
   const demoOn = config?.demoMode ?? false;
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border bg-card px-4 py-3">
@@ -72,6 +84,7 @@ export function StatusBar({ connected, config, feeds, latency, onToggleDemo }: P
         </div>
 
         <button
+          id="tour-demo"
           type="button"
           onClick={() => onToggleDemo(!demoOn)}
           className={cn(
@@ -85,6 +98,44 @@ export function StatusBar({ connected, config, feeds, latency, onToggleDemo }: P
           <FlaskConical className="h-3.5 w-3.5" />
           Demo {demoOn ? "ON" : "OFF"}
         </button>
+
+        <button
+          type="button"
+          onClick={onStartTour}
+          className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          title={t("nav.tour")}
+        >
+          <Route className="h-3.5 w-3.5" />
+          {t("nav.tour")}
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenGuide}
+          className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          title={t("nav.guide")}
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          {t("nav.guide")}
+        </button>
+
+        <div className="flex items-center overflow-hidden rounded-md border border-border">
+          {(["es", "en"] as const).map((code) => (
+            <button
+              key={code}
+              type="button"
+              onClick={() => setLang(code)}
+              className={cn(
+                "px-2 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+                lang === code
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {code}
+            </button>
+          ))}
+        </div>
       </div>
     </header>
   );

@@ -55,3 +55,58 @@
   background: hsl(var(--border));
   border-radius: 4px;
 }
+
+/* driver.js spotlight tour — themed to match the dark terminal */
+.driver-popover {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  max-width: 340px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.driver-popover-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+.driver-popover-description {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
+}
+.driver-popover-progress-text {
+  font-size: 0.7rem;
+  color: hsl(var(--muted-foreground));
+}
+.driver-popover-close-btn {
+  color: hsl(var(--muted-foreground));
+}
+.driver-popover-close-btn:hover {
+  color: hsl(var(--foreground));
+}
+.driver-popover-navigation-btns button {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  text-shadow: none;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.7rem;
+}
+.driver-popover-navigation-btns button:hover {
+  background-color: hsl(var(--accent));
+}
+.driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: hsl(var(--card));
+}
+.driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: hsl(var(--card));
+}
+.driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: hsl(var(--card));
+}
+.driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: hsl(var(--card));
+}
