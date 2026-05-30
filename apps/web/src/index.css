@@ -2,22 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
+@layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 210 20% 90%;
+    --card: 217 33% 8%;
+    --card-foreground: 210 20% 90%;
+    --popover: 217 33% 8%;
+    --popover-foreground: 210 20% 90%;
+    --primary: 204 90% 60%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 215 25% 14%;
+    --secondary-foreground: 210 20% 90%;
+    --muted: 215 25% 14%;
+    --muted-foreground: 210 12% 55%;
+    --accent: 215 25% 16%;
+    --accent-foreground: 210 20% 90%;
+    --destructive: 348 100% 65%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 28% 16%;
+    --input: 215 28% 16%;
+    --ring: 204 90% 60%;
+    --radius: 0.5rem;
+
+    --profit: 152 73% 45%;
+    --loss: 348 100% 65%;
+    --warn: 33 100% 64%;
+  }
 }
 
-html,
-body,
-#root {
-  height: 100%;
-}
-
-body {
-  margin: 0;
-  background-color: #0a0e14;
-  color: #c9d3df;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
 }
 
 ::-webkit-scrollbar {
@@ -25,6 +52,6 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1c2530;
+  background: hsl(var(--border));
   border-radius: 4px;
 }

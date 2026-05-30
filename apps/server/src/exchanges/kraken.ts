@@ -1,5 +1,5 @@
 import type WebSocket from "ws";
-import type { BookLevel, ExchangeId, TopOfBook } from "@arb/shared";
+import type { BookLevel, ExchangeId } from "@arb/shared";
 import { BaseConnector } from "./base.js";
 
 interface KrakenLevel {
