@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Sparkles, X } from "lucide-react";
+import { MessageCircle, Send, Sparkles, X } from "lucide-react";
 import type { FiloLang, FiloMessage } from "@arb/shared";
 import { FilobotLogo } from "@/components/FilobotLogo";
 import { OTHER_LANG, useLang, type StringKey } from "@/lib/i18n";
+import { SERVER_URL } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -29,7 +30,22 @@ export function FiloChat({ messages, onAsk }: Props) {
   const [draft, setDraft] = useState("");
   const [lastSeen, setLastSeen] = useState(() => Date.now());
   const [nudge, setNudge] = useState(false);
+  const [waLink, setWaLink] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Discover whether the WhatsApp transport is configured on the server.
+  useEffect(() => {
+    let alive = true;
+    fetch(`${SERVER_URL}/api/whatsapp/info`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((info) => {
+        if (alive && info?.enabled && info.link) setWaLink(info.link as string);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const NUDGE_KEY = "filo_nudge_seen";
 
@@ -136,6 +152,28 @@ export function FiloChat({ messages, onAsk }: Props) {
             ))}
             {pending && <Typing label={t("chat.typing")} />}
           </div>
+
+          {/* WhatsApp opt-in (only when the server has the transport configured) */}
+          {waLink && (
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noreferrer"
+              className="flex flex-none items-center gap-2.5 border-t border-white/[0.06] bg-[#25D366]/[0.08] px-3 py-2.5 transition-colors hover:bg-[#25D366]/[0.14]"
+            >
+              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-[#25D366]/20 text-[#25D366]">
+                <MessageCircle className="h-4 w-4" />
+              </span>
+              <span className="leading-tight">
+                <span className="block text-[13px] font-semibold text-foreground">
+                  {t("chat.whatsapp")}
+                </span>
+                <span className="block text-[11px] text-muted-foreground">
+                  {t("chat.whatsapp.sub")}
+                </span>
+              </span>
+            </a>
+          )}
 
           {/* Suggestions — always available, never disappear on send */}
           <div className="flex flex-none gap-1.5 overflow-x-auto border-t border-white/[0.06] px-2.5 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

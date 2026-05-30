@@ -69,6 +69,38 @@ export const engineConfig: EngineConfig = {
   },
 };
 
+function str(name: string): string | undefined {
+  const raw = process.env[name];
+  return raw === undefined || raw === "" ? undefined : raw;
+}
+
+/**
+ * Optional persistence + WhatsApp ("Filo by WhatsApp") configuration. Every
+ * field is optional: with none set the server runs fully clean-room (in-memory
+ * storage, WhatsApp disabled). On our live deploy these are provided. None of
+ * this touches the detection/execution hot path — same stance as the LLM layer.
+ */
+export const integrations = {
+  /** MongoDB connection string; falls back to in-memory storage when absent. */
+  mongoUri: str("MONGODB_URI"),
+  mongoDb: process.env.MONGODB_DB ?? "filobot",
+  whatsapp: {
+    /** Kapso project API key (X-API-Key). */
+    apiKey: str("KAPSO_API_KEY"),
+    /** WhatsApp Business phone number id used in the send endpoint path. */
+    phoneNumberId: str("KAPSO_PHONE_NUMBER_ID"),
+    /** Secret used to verify inbound webhook signatures (HMAC-SHA256). */
+    webhookSecret: str("KAPSO_WEBHOOK_SECRET"),
+    /** Public display number (E.164, digits only) used for the wa.me link. */
+    displayNumber: (str("WHATSAPP_NUMBER") ?? "").replace(/[^0-9]/g, "") || undefined,
+    /** Prefilled keyword the visitor sends to opt in via click-to-chat. */
+    keyword: process.env.WHATSAPP_KEYWORD ?? "Filo",
+    /** Min seconds between unprompted pushes to a single subscriber. */
+    minPushIntervalSec: num("WHATSAPP_MIN_PUSH_SEC", 45),
+    base: process.env.KAPSO_BASE_URL ?? "https://api.kapso.ai/meta/whatsapp/v24.0",
+  },
+};
+
 export const startingBalances = {
   usdPerExchange: num("START_USD_PER_EXCHANGE", 100_000),
   btcPerExchange: num("START_BTC_PER_EXCHANGE", 2),

@@ -4,7 +4,7 @@ import type {
   ServerToClientEvents,
 } from "@arb/shared";
 
-const SERVER_URL =
+export const SERVER_URL =
   (import.meta.env.VITE_SERVER_URL as string | undefined) ??
   "http://localhost:4000";
 

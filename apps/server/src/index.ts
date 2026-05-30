@@ -25,13 +25,29 @@ import { ArbitrageEngine } from "./engine/arbitrageEngine.js";
 import { TriangularEngine } from "./engine/triangularEngine.js";
 import { DemoMarketMaker } from "./demo/demoMarketMaker.js";
 import { FiloAgent } from "./filo/filoAgent.js";
+import { WhatsAppBridge } from "./filo/whatsappBridge.js";
+import {
+  verifyWebhook,
+  whatsappKeyword,
+  whatsappLink,
+  whatsappReady,
+} from "./filo/whatsapp.js";
 
 const app = express();
 app.use(cors());
+// Capture the raw body so we can verify webhook HMAC signatures byte-for-byte.
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request & { rawBody?: string }).rawBody = buf.toString("utf8");
+    },
+  }),
+);
 
 const engine = new ArbitrageEngine(engineConfig);
 const filo = new FiloAgent(engineConfig);
 filo.attach(engine);
+const whatsapp = new WhatsAppBridge(filo);
 const feedStatus = new Map<ExchangeId, FeedStatus>();
 
 app.get("/health", (_req, res) => {
@@ -41,6 +57,29 @@ app.get("/health", (_req, res) => {
     exchanges: engineConfig.exchanges,
     feeds: [...feedStatus.values()],
   });
+});
+
+// Whether the dashboard should show the "chat with Filo on WhatsApp" affordance,
+// plus the click-to-chat link (which is what opens WhatsApp's 24h window).
+app.get("/api/whatsapp/info", (_req, res) => {
+  res.json({
+    enabled: whatsappReady(),
+    link: whatsappLink(),
+    keyword: whatsappKeyword(),
+    subscribers: whatsapp.activeCount(),
+  });
+});
+
+// Inbound messages from Kapso. We verify the signature, ack fast, process async.
+app.post("/api/whatsapp/webhook", (req, res) => {
+  const raw = (req as express.Request & { rawBody?: string }).rawBody ?? JSON.stringify(req.body);
+  const signature = req.header("X-Webhook-Signature");
+  if (!verifyWebhook(raw, signature)) {
+    res.status(401).send("invalid signature");
+    return;
+  }
+  res.status(200).send("ok");
+  whatsapp.handleWebhook(req.body).catch((err) => console.warn("[whatsapp] webhook", err));
 });
 
 const server = http.createServer(app);
@@ -220,6 +259,8 @@ for (const connector of connectors) {
 
 engine.start();
 filo.start();
+// Optional WhatsApp transport for Filo (no-ops cleanly when unconfigured).
+whatsapp.start().catch((err) => console.warn("[whatsapp] start failed", err));
 
 // Triangular arbitrage: one independent engine per venue across the cycle
 // BTC/USDT · ETH/BTC · ETH/USDT. Each venue gets its own three connectors,
@@ -269,6 +310,7 @@ function shutdown() {
   demo.stop();
   engine.stop();
   filo.stop();
+  void whatsapp.stop();
   io.close();
   server.close(() => process.exit(0));
 }

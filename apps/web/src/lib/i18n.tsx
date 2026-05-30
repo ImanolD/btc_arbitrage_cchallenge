@@ -146,6 +146,8 @@ const STRINGS = {
     "chat.s.latency": "¿Qué latencia tienes?",
     "chat.s.best": "¿Mejor oportunidad ahora?",
     "chat.nudge": "👋 ¿Dudas? Pregúntame lo que sea.",
+    "chat.whatsapp": "Recibir alertas por WhatsApp",
+    "chat.whatsapp.sub": "Chatea con Filo y recibe avisos en vivo",
     "nav.settings": "Ajustes",
     "settings.title": "Ajustes del motor",
     "settings.subtitle":
@@ -299,6 +301,8 @@ const STRINGS = {
     "chat.s.latency": "What's your latency?",
     "chat.s.best": "Best opportunity now?",
     "chat.nudge": "👋 Questions? Ask me anything.",
+    "chat.whatsapp": "Get alerts on WhatsApp",
+    "chat.whatsapp.sub": "Chat with Filo and get live pings",
     "nav.settings": "Settings",
     "settings.title": "Engine settings",
     "settings.subtitle":

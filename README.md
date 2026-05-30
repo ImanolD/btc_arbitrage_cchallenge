@@ -118,9 +118,17 @@ El dashboard incluye a **Filo**, un asistente de chat con la personalidad de la 
 - **Narración en vivo.** Filo avisa cuando algo relevante ocurre — la mejor oportunidad accionable, ejecuciones, *por qué descartó* un cruce (bruto positivo pero neto negativo), cambio de modo demo o caída de un feed — más un **resumen periódico** de la sesión. Todo *throttled* por categoría para no saturar.
 - **Preguntas a demanda.** Pregúntale por P&L, equity, oportunidades, latencia, mejor trade, rebalanceo, supervivencia o venues. Las respuestas se construyen con los **números reales del motor**.
 - **Dos capas, con degradación elegante.** Primero un **matcher determinista** (instantáneo, sin costo, siempre disponible y *grounded*); para preguntas libres, una **capa opcional con Claude** estrictamente *grounded* (solo ve el estado en JSON, con instrucción de **nunca inventar cifras**). Si no hay API key, hay timeout o falla la llamada, Filo cae de vuelta a la respuesta determinista — la demo nunca depende de una llamada remota.
-- **Una sola mente, lista para más transportes.** El "cerebro" de Filo es agnóstico al transporte: hoy habla por Socket.IO con el dashboard; una integración con WhatsApp sería solo otro transporte.
+- **Una sola mente, dos transportes.** El "cerebro" de Filo es agnóstico al transporte: habla por Socket.IO con el dashboard **y por WhatsApp** (ver abajo) reutilizando exactamente la misma capa determinista + LLM.
 
 Es **opcional**: sin `ANTHROPIC_API_KEY`, Filo funciona igual con sus respuestas deterministas. Con la key, además maneja preguntas libres vía Claude.
+
+### Filo por WhatsApp 📱
+
+Filo también vive en WhatsApp (vía [Kapso](https://kapso.ai)). El visitante toca un enlace **click-to-chat** y envía una palabra clave: eso (1) da su **consentimiento**, (2) abre la **ventana de 24 h** de WhatsApp para mensajes libres y (3) lo registra como suscriptor. A partir de ahí Filo **empuja avisos en vivo** (mejores oportunidades, ejecuciones, alertas — *throttled* por persona) y **responde preguntas** con el mismo cerebro del dashboard. Escribir `BAJA`/`STOP` cancela.
+
+- Las suscripciones se guardan en **MongoDB** si hay `MONGODB_URI`; si no, en memoria (clean-room).
+- Todo es **opcional**: sin credenciales de Kapso, el botón se oculta y el bridge no hace nada.
+- Igual que el LLM, el transporte y la persistencia viven **fuera del hot path**: ningún envío de WhatsApp ni escritura a Mongo puede bloquear la detección/ejecución.
 
 ## Ejecución local
 
@@ -164,6 +172,12 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 | `FILO_MODEL` | `claude-3-5-haiku-latest` | Modelo de Claude para las respuestas libres de Filo |
 | `FILO_DIGEST_MS` | `75000` | Periodo (ms) del resumen no solicitado de Filo; `0` lo desactiva. Ajustable en vivo |
 | `FILO_NARRATE` | `true` | Si Filo emite narraciones no solicitadas (`false` las silencia; las respuestas a preguntas no se ven afectadas). Ajustable en vivo |
+| `MONGODB_URI` | — | (Opcional) Persiste las suscripciones de WhatsApp; sin ella, almacenamiento en memoria (clean-room) |
+| `KAPSO_API_KEY` | — | (Opcional) Habilita el transporte de WhatsApp (Filo por WhatsApp) vía Kapso |
+| `KAPSO_PHONE_NUMBER_ID` | — | ID del número de WhatsApp Business para el envío |
+| `KAPSO_WEBHOOK_SECRET` | — | Secreto para verificar la firma (HMAC-SHA256) de los webhooks entrantes |
+| `WHATSAPP_NUMBER` | — | Número público (E.164, solo dígitos) para el enlace `wa.me` de click-to-chat |
+| `WHATSAPP_KEYWORD` | `Filo` | Palabra clave de opt-in prellenada en el enlace |
 
 ## Despliegue
 

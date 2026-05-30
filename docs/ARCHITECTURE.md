@@ -195,7 +195,7 @@ El book dislocado del venue demo se **excluye** del precio de referencia de marc
 
 ### 11.1 Una sola mente, agnóstica al transporte
 
-`FiloAgent` (`apps/server/src/filo/filoAgent.ts`) es un `EventEmitter` que se **suscribe a los eventos del motor** (`opportunity`, `trade`, `portfolio`, `latency`, `stats`) y mantiene una vista viva del estado. Emite mensajes que el servidor reenvía por **Socket.IO** y responde preguntas a demanda. El "cerebro" no sabe nada del transporte: hoy habla con el dashboard; un segundo transporte (p. ej. WhatsApp) sería solo otro consumidor de la misma mente.
+`FiloAgent` (`apps/server/src/filo/filoAgent.ts`) es un `EventEmitter` que se **suscribe a los eventos del motor** (`opportunity`, `trade`, `portfolio`, `latency`, `stats`) y mantiene una vista viva del estado. Emite mensajes que el servidor reenvía por **Socket.IO** y responde preguntas a demanda. El "cerebro" no sabe nada del transporte: alimenta **dos** consumidores de la misma mente — el dashboard (Socket.IO) y **WhatsApp** (§11.5).
 
 ### 11.2 Dos capas, con degradación elegante
 
@@ -211,6 +211,16 @@ Filo narra lo **relevante**, no cada tick: mejor oportunidad accionable, ejecuci
 ### 11.4 Por qué esto suma (y no es teatro)
 
 La parte que gana puntos no es "tenemos un chatbot", sino **explicabilidad grounded**: Filo puede decir *por qué* se descartó un cruce (bruto vs neto vs EV) en lenguaje llano, conectando la sofisticación financiera del motor con un jurado no técnico — sin arriesgar la corrección, porque las cifras salen del motor, no del modelo.
+
+### 11.5 Filo por WhatsApp (segundo transporte, también fuera del hot path)
+
+El cerebro agnóstico al transporte (§11.1) alimenta un segundo canal vía [Kapso](https://kapso.ai): `WhatsAppBridge` (`apps/server/src/filo/whatsappBridge.ts`).
+
+- **Opt-in por click-to-chat.** El visitante toca un enlace `wa.me` y envía una palabra clave. Eso (1) da **consentimiento**, (2) abre la **ventana de servicio de 24 h** de WhatsApp (requisito de Meta para mensajes libres; evita depender de plantillas pre-aprobadas) y (3) lo registra. El webhook entrante se **verifica por firma HMAC-SHA256**.
+- **Salida throttled.** Las narraciones de Filo se reenvían a los suscriptores activos, **limitadas por persona** y solo dentro de la ventana de 24 h.
+- **Entrada → mismo cerebro.** Las preguntas por WhatsApp pasan por el mismo `ask()` (determinista + LLM opcional) que el dashboard. `BAJA`/`STOP` cancela.
+- **Persistencia opcional y aislada.** Las suscripciones se guardan tras una interfaz `Storage` (`apps/server/src/storage/`): Mongo si hay `MONGODB_URI`, en memoria si no (clean-room). Una conexión fallida **degrada a memoria** sin tumbar el dashboard.
+- **Fuera del hot path.** Igual que el LLM: ningún envío de WhatsApp ni escritura a Mongo es síncrono respecto a la detección/ejecución. Todo es *fire-and-forget* y tolerante a fallos.
 
 ---
 
@@ -236,4 +246,4 @@ La instalación y la orquestación de tareas siguen usando **Bun workspaces**; s
 - **Persistencia:** el historial vive en memoria; una base de datos (p. ej. MongoDB) permitiría histórico entre sesiones.
 - **Más pares y monedas de cotización:** ya corremos 8 venues en dos *pools* (USDT/USD); la abstracción de connectors hace trivial sumar exchanges, y generalizar a más símbolos (p. ej. pools USDC) ampliaría el universo de oportunidades.
 - **Colocación:** desplegar el servidor en una región cercana al *edge* de los exchanges reduciría la latencia de feed (RTT).
-- **Filo por WhatsApp:** como el cerebro de Filo es agnóstico al transporte (§11.1), un segundo transporte vía WhatsApp permitiría que el jurado interactúe desde su teléfono (respuestas reactivas y alertas *opt-in* dentro de la ventana de sesión) — fuera del alcance de esta entrega, pero un paso directo.
+- **Filo por WhatsApp — implementado (§11.5).** El siguiente paso natural sería re-enganche fuera de la ventana de 24 h con **plantillas pre-aprobadas** de Meta y *broadcasts* segmentados, para avisar a un suscriptor cuando ya pasó un día desde su último mensaje.
