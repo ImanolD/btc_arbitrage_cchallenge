@@ -28,6 +28,13 @@ export interface EvResult {
 export interface EvInputs {
   netProfit: number;
   netProfitPct: number;
+  /**
+   * Gross spread as a fraction of notional. Survival is about whether the
+   * observed *price dislocation* persists, which is independent of our fees, so
+   * edge-confidence keys off the gross edge — otherwise every sub-fee cross
+   * would collapse to the same floor survival.
+   */
+  grossPct: number;
   /** Quote spent (notional) — basis for the adverse-selection cost. */
   cost: number;
   /** Total staleness of the quotes we'd act on (feed + processing), ms. */
@@ -45,7 +52,7 @@ export function computeEv(inputs: EvInputs, cfg: EvConfig): EvResult {
   const sellImbalance = depthShare(inputs.sellBids, inputs.sellAsks);
 
   const survivalProb = estimateSurvival(
-    inputs.netProfitPct,
+    inputs.grossPct,
     inputs.ageMs,
     buyImbalance,
     sellImbalance,
@@ -66,7 +73,7 @@ export function computeEv(inputs: EvInputs, cfg: EvConfig): EvResult {
  * - liquidity support: deeper supporting depth makes the cross less ephemeral.
  */
 export function estimateSurvival(
-  netProfitPct: number,
+  grossPct: number,
   ageMs: number,
   buyImbalance: number,
   sellImbalance: number,
@@ -74,7 +81,7 @@ export function estimateSurvival(
 ): number {
   const decay = Math.exp(-Math.max(0, ageMs) / cfg.tauMs);
 
-  const edge = Math.max(0, netProfitPct);
+  const edge = Math.max(0, grossPct);
   const edgeConfidence = edge / (edge + HALF_EDGE_PCT);
 
   // Average supporting-side depth share, mapped to a mild [0.7, 1.0] multiplier.

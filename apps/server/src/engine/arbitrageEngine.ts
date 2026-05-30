@@ -6,6 +6,7 @@ import type {
   LatencyStats,
   Opportunity,
   PortfolioStats,
+  StatsSnapshot,
   SimulatedTrade,
   TopOfBook,
 } from "@arb/shared";
@@ -17,6 +18,7 @@ import { RiskManager } from "./riskManager.js";
 import { Portfolio } from "./portfolio.js";
 import { ExecutionSimulator } from "./executionSimulator.js";
 import { LatencyTracker } from "./latencyTracker.js";
+import { StatsAggregator } from "./statsAggregator.js";
 
 /** Minimum gap between executions on the same pair+direction (ms). */
 const EXECUTION_COOLDOWN_MS = 750;
@@ -28,6 +30,7 @@ export interface EngineEvents {
   trade: (trade: SimulatedTrade) => void;
   portfolio: (stats: PortfolioStats) => void;
   latency: (stats: LatencyStats) => void;
+  stats: (stats: StatsSnapshot) => void;
 }
 
 /** A detected route plus the live books needed to execute it. */
@@ -49,10 +52,14 @@ export class ArbitrageEngine extends EventEmitter {
   private readonly portfolio: Portfolio;
   private readonly simulator: ExecutionSimulator;
   private readonly latency = new LatencyTracker();
+  private readonly stats = new StatsAggregator();
   private readonly lastTradeAt = new Map<string, number>();
   private readonly lastOppAt = new Map<string, number>();
   private referencePrice: number;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
+  private analysisTimer: ReturnType<typeof setInterval> | null = null;
+  /** High-resolution start of the current tick, for sub-ms processing latency. */
+  private tickStartHrt = 0;
 
   constructor(private readonly config: EngineConfig) {
     super();
@@ -79,10 +86,15 @@ export class ArbitrageEngine extends EventEmitter {
       this.emit("portfolio", this.portfolioStats());
       this.emit("latency", this.latencySnapshot());
     }, 500);
+    // Empirical analysis snapshot on a slower cadence (heavier to compute).
+    this.analysisTimer = setInterval(() => {
+      this.emit("stats", this.stats.snapshot());
+    }, 1500);
   }
 
   stop(): void {
     if (this.statsTimer) clearInterval(this.statsTimer);
+    if (this.analysisTimer) clearInterval(this.analysisTimer);
   }
 
   /** Current mark-to-market reference price (mid of the latest real book). */
@@ -92,6 +104,9 @@ export class ArbitrageEngine extends EventEmitter {
 
   /** Hot path: called on every incoming top-of-book update. */
   onBook(book: TopOfBook): void {
+    // Monotonic clock so processing latency has true sub-millisecond resolution
+    // (Date.now() is millisecond-granular and would report 0µs for fast ticks).
+    this.tickStartHrt = performance.now();
     this.store.update(book);
     this.latency.recordBook(book);
     // The demo venue is intentionally dislocated, so it must never drive the
@@ -184,7 +199,9 @@ export class ArbitrageEngine extends EventEmitter {
     const now = Date.now();
     const decision = this.risk.evaluate(calc, buyBook, sellBook, now);
 
-    const processingMs = now - trigger.receivedAt;
+    // Time from this market tick entering the engine to detection — our code's
+    // work only, measured on a monotonic clock for genuine sub-ms precision.
+    const processingMs = performance.now() - this.tickStartHrt;
     this.latency.recordProcessing(processingMs);
 
     const netProfitPct = calc.cost > 0 ? calc.netProfit / calc.cost : 0;
@@ -199,6 +216,7 @@ export class ArbitrageEngine extends EventEmitter {
       {
         netProfit: calc.netProfit,
         netProfitPct,
+        grossPct: calc.cost > 0 ? calc.grossProfit / calc.cost : 0,
         cost: calc.cost,
         ageMs: processingMs + (feedMs ?? 0),
         buyAsks: buyBook.asks,
@@ -238,6 +256,18 @@ export class ArbitrageEngine extends EventEmitter {
       },
       detectedAt: now,
     };
+
+    // Feed the empirical aggregator with EVERY detected cross (full population),
+    // before any feed throttling — the analysis must reflect real data.
+    this.stats.record({
+      grossProfit: calc.grossProfit,
+      netProfit: calc.netProfit,
+      cost: calc.cost,
+      survival: ev.survivalProb,
+      buyExchange: buyBook.exchange,
+      sellExchange: sellBook.exchange,
+      actionable,
+    });
 
     // Always surface executable opportunities; throttle repeated rejected ones
     // on the same route so a persistent sub-fee cross doesn't flood the feed.

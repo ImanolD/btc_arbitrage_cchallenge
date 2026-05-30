@@ -65,6 +65,7 @@ engine.on("opportunity", (opp) => broadcast("opportunity", opp));
 engine.on("trade", (trade) => broadcast("trade", trade));
 engine.on("portfolio", (stats) => broadcast("portfolio", stats));
 engine.on("latency", (stats) => broadcast("latency", stats));
+engine.on("stats", (stats) => broadcast("stats", stats));
 
 io.on("connection", (socket: ArbSocket) => {
   clients.add(socket);
@@ -123,6 +124,10 @@ for (const connector of connectors) {
   });
 
   connector.on("book", (book) => {
+    // Defensive: never process or display a crossed book (bid >= ask). Local
+    // order-book connectors can momentarily desync; drop the tick and wait for
+    // the next clean one rather than surfacing an impossible quote.
+    if (book.bestBid >= book.bestAsk) return;
     engine.onBook(book);
     broadcast("book", book);
     const fs = feedStatus.get(connector.id);

@@ -17,9 +17,9 @@ const STORAGE_KEY = "arb_lang";
  */
 const STRINGS = {
   es: {
-    "guide.title": "Terminal de Arbitraje BTC",
+    "guide.title": "Filobot · Arbitraje BTC",
     "guide.subtitle":
-      "Detección de arbitraje de Bitcoin entre exchanges en tiempo real y ejecución simulada. Así se lee el panel en 60 segundos.",
+      "Filobot detecta arbitraje de Bitcoin entre exchanges en tiempo real y simula la ejecución. Así se lee el panel en 60 segundos.",
     "guide.start": "Iniciar recorrido guiado",
     "guide.explore": "Explorar por mi cuenta",
     "guide.demoTitle": "¿Quieres ver el camino de ejecución completo?",
@@ -91,11 +91,30 @@ const STRINGS = {
     "info.blotter.title": "Blotter de trades",
     "info.blotter.body":
       "Cada fill simulado: ruta, tamaño llenado (fills parciales marcados), precios promedio de compra/venta, fees y ganancia neta. Es la bitácora de ejecución.",
+    "nav.stats": "Análisis",
+    "stats.title": "Análisis estadístico",
+    "stats.subtitle":
+      "Calculado en el servidor sobre la población completa de cruces detectados desde el arranque — datos reales, no narrativa.",
+    "stats.empty": "Recopilando datos… deja correr el motor unos segundos.",
+    "stats.detRate": "Detecciones / min",
+    "stats.actRate": "% accionable",
+    "stats.medGross": "Spread bruto mediano",
+    "stats.medNet": "Spread neto mediano",
+    "stats.sample": "Muestra",
+    "stats.crosses": "cruces",
+    "stats.grossHist": "Distribución de spread bruto",
+    "stats.netHist": "Distribución de spread neto (mayormente negativo tras fees)",
+    "stats.venues": "Actividad por venue (lado barato vs caro)",
+    "stats.asBuy": "Compra",
+    "stats.asSell": "Venta",
+    "stats.meanSurvival": "Supervivencia media",
+    "stats.takeaway":
+      "Conclusión: los cruces brutos abundan, pero casi ninguno sobrevive a fees, latencia y slippage. Por eso decidimos por valor esperado, no por umbral.",
   },
   en: {
-    "guide.title": "BTC Arbitrage Terminal",
+    "guide.title": "Filobot · BTC Arbitrage",
     "guide.subtitle":
-      "Real-time cross-exchange Bitcoin arbitrage detection and simulated execution. Here's how to read the dashboard in 60 seconds.",
+      "Filobot detects cross-exchange Bitcoin arbitrage in real time and simulates execution. Here's how to read the dashboard in 60 seconds.",
     "guide.start": "Start guided tour",
     "guide.explore": "Explore on my own",
     "guide.demoTitle": "Want to see the full execution path?",
@@ -167,6 +186,25 @@ const STRINGS = {
     "info.blotter.title": "Trade blotter",
     "info.blotter.body":
       "Each simulated fill: route, filled size (partial fills flagged), average buy/sell prices, fees and net profit. This is the execution audit trail.",
+    "nav.stats": "Analysis",
+    "stats.title": "Statistical analysis",
+    "stats.subtitle":
+      "Computed on the server over the full population of detected crosses since boot — real data, not narrative.",
+    "stats.empty": "Collecting data… let the engine run for a few seconds.",
+    "stats.detRate": "Detections / min",
+    "stats.actRate": "% actionable",
+    "stats.medGross": "Median gross spread",
+    "stats.medNet": "Median net spread",
+    "stats.sample": "Sample",
+    "stats.crosses": "crosses",
+    "stats.grossHist": "Gross spread distribution",
+    "stats.netHist": "Net spread distribution (mostly negative after fees)",
+    "stats.venues": "Venue activity (cheap vs expensive side)",
+    "stats.asBuy": "Buy",
+    "stats.asSell": "Sell",
+    "stats.meanSurvival": "Mean survival",
+    "stats.takeaway":
+      "Takeaway: gross crosses are plentiful, but almost none survive fees, latency and slippage. That's why we decide by expected value, not a threshold.",
   },
 } as const;
 

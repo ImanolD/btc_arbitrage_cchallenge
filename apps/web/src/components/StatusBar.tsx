@@ -1,6 +1,7 @@
-import { Activity, FlaskConical, HelpCircle, Radio, Route, Zap } from "lucide-react";
+import { Activity, BarChart3, FlaskConical, HelpCircle, Radio, Route } from "lucide-react";
 import type { EngineConfig, FeedStatus, LatencyStats } from "@arb/shared";
 import { Badge } from "@/components/ui/badge";
+import { FilobotLogo } from "@/components/FilobotLogo";
 import { ms, titleCase } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
@@ -13,6 +14,7 @@ interface Props {
   onToggleDemo: (enabled: boolean) => void;
   onOpenGuide: () => void;
   onStartTour: () => void;
+  onOpenStats: () => void;
 }
 
 export function StatusBar({
@@ -23,21 +25,22 @@ export function StatusBar({
   onToggleDemo,
   onOpenGuide,
   onStartTour,
+  onOpenStats,
 }: Props) {
   const { lang, setLang, t } = useLang();
   const demoOn = config?.demoMode ?? false;
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-white/[0.06] bg-card/60 px-4 py-2.5 backdrop-blur-md">
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-cyan-400 shadow-[0_0_20px_-2px_hsl(var(--primary)/0.6)]">
-          <Zap className="h-4 w-4 text-primary-foreground" strokeWidth={2.5} />
+        <div className="h-8 w-8 drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)]">
+          <FilobotLogo />
         </div>
         <div className="leading-tight">
-          <div className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">
-            BTC Arbitrage Terminal
+          <div className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-sm font-bold uppercase tracking-[0.2em] text-transparent">
+            Filobot
           </div>
-          <div className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground">
-            Cross-exchange execution engine
+          <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+            Cross-exchange BTC arbitrage engine
           </div>
         </div>
         {config && (
@@ -109,6 +112,16 @@ export function StatusBar({
         >
           <FlaskConical className="h-3.5 w-3.5" />
           Demo {demoOn ? "ON" : "OFF"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenStats}
+          className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          title={t("nav.stats")}
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+          {t("nav.stats")}
         </button>
 
         <button

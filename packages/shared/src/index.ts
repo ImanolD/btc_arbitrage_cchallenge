@@ -238,6 +238,65 @@ export interface EvConfig {
   minEvUsd: number;
 }
 
+/* ── Statistical analysis (computed over the full session population) ─────── */
+
+/** A labeled count bucket for a histogram. */
+export interface HistogramBucket {
+  /** Inclusive lower edge of the bucket (in the metric's unit). */
+  from: number;
+  /** Exclusive upper edge, or null for the open-ended top bucket. */
+  to: number | null;
+  /** Human label, e.g. "5–10 bps". */
+  label: string;
+  count: number;
+}
+
+/** How often a venue is the cheap (buy) or expensive (sell) side of a cross. */
+export interface VenueActivity {
+  exchange: ExchangeId;
+  asBuy: number;
+  asSell: number;
+}
+
+/**
+ * Empirical statistics computed server-side over the FULL population of detected
+ * crosses (not the small client buffer), so the analysis reflects real data.
+ */
+export interface StatsSnapshot {
+  generatedAt: number;
+  /** Number of crosses aggregated since boot. */
+  sampleCount: number;
+  /** Seconds the engine has been collecting. */
+  uptimeSec: number;
+  opportunities: {
+    total: number;
+    actionable: number;
+    actionableRatePct: number;
+    perMinute: number;
+  };
+  /** Gross spread distribution, in basis points of notional. */
+  grossBps: {
+    mean: number;
+    p50: number;
+    p95: number;
+    max: number;
+    histogram: HistogramBucket[];
+  };
+  /** Net (after fees + slippage) spread distribution, in bps — mostly negative. */
+  netBps: {
+    mean: number;
+    p50: number;
+    p95: number;
+    min: number;
+    max: number;
+    histogram: HistogramBucket[];
+  };
+  /** Mean survival probability across detected crosses [0..1]. */
+  meanSurvival: number;
+  /** Per-venue cheap/expensive-side frequency. */
+  venues: VenueActivity[];
+}
+
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 export interface FeedStatus {
@@ -257,6 +316,7 @@ export interface ServerToClientEvents {
   portfolio: (stats: PortfolioStats) => void;
   latency: (stats: LatencyStats) => void;
   feeds: (feeds: FeedStatus[]) => void;
+  stats: (stats: StatsSnapshot) => void;
 }
 
 export interface ClientToServerEvents {

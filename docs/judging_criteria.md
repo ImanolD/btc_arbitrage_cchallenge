@@ -1,6 +1,6 @@
-# Criterios del jurado — cómo los resolvemos
+# Criterios del jurado — cómo los resolvemos (Filobot)
 
-Este documento mapea **cada criterio de evaluación** del reto a las decisiones concretas de nuestra solución, con punteros al código para que la revisión sea directa. Al final hay un **FAQ** que anticipa las preguntas técnicas más probables.
+Este documento mapea **cada criterio de evaluación** del reto a las decisiones concretas de **Filobot**, con punteros al código para que la revisión sea directa. Al final hay un **FAQ** que anticipa las preguntas técnicas más probables.
 
 > Resumen en una línea: este reto *parece* un problema de velocidad, pero se gana con **criterio financiero**. Optimizamos latencia **y** modelamos el dominio (inventario, slippage, fees amortizados, riesgo) como lo hace una mesa real.
 

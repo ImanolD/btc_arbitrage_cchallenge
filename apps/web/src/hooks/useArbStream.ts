@@ -7,6 +7,7 @@ import type {
   Opportunity,
   PortfolioStats,
   SimulatedTrade,
+  StatsSnapshot,
   TopOfBook,
   TriangularOpportunity,
 } from "@arb/shared";
@@ -24,6 +25,7 @@ export interface ArbState {
   latency: LatencyStats | null;
   feeds: FeedStatus[];
   triangular: TriangularOpportunity[];
+  stats: StatsSnapshot | null;
 }
 
 const initialState: ArbState = {
@@ -36,6 +38,7 @@ const initialState: ArbState = {
   latency: null,
   feeds: [],
   triangular: [],
+  stats: null,
 };
 
 /**
@@ -115,6 +118,10 @@ export function useArbStream(): ArbStream {
 
     socket.on("feeds", (feeds: FeedStatus[]) =>
       setState((p) => ({ ...p, feeds })),
+    );
+
+    socket.on("stats", (stats: StatsSnapshot) =>
+      setState((p) => ({ ...p, stats })),
     );
 
     return () => {

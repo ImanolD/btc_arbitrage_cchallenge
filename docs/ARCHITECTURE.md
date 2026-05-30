@@ -1,4 +1,4 @@
-# Arquitectura — BTC Arbitrage Terminal
+# Arquitectura — Filobot (Terminal de Arbitraje BTC)
 
 Este documento describe el diseño técnico del sistema: cómo fluyen los datos desde los exchanges hasta el dashboard, las decisiones de ingeniería relevantes y los porqués detrás de ellas.
 

@@ -70,6 +70,16 @@ export class KrakenConnector extends BaseConnector {
     const asks = topLevels(this.asks, "asc");
     if (bids.length === 0 || asks.length === 0) return;
 
+    // Self-heal a crossed book: a resting bid priced at/above the best ask is
+    // stale (it would have matched) — typically a level that fell out of the
+    // depth window without an explicit delete. Drop such levels until the book
+    // is consistent again, so we never surface an impossible bid > ask quote.
+    while (bids.length > 0 && asks.length > 0 && bids[0][0] >= asks[0][0]) {
+      this.bids.delete(bids[0][0]);
+      bids.shift();
+    }
+    if (bids.length === 0 || asks.length === 0) return;
+
     const exchangeTime = data.timestamp ? Date.parse(data.timestamp) : null;
 
     this.emitBook({
