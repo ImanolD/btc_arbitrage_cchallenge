@@ -1,7 +1,7 @@
 import http from "node:http";
 import express from "express";
 import cors from "cors";
-import { Server } from "socket.io";
+import { Server, type Socket } from "socket.io";
 import type {
   ClientToServerEvents,
   ConnectionStatus,
@@ -33,14 +33,31 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
   cors: { origin: "*" },
 });
 
+type ArbSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+const clients = new Set<ArbSocket>();
+
+/**
+ * Emit to every connected client by iterating sockets directly. We avoid
+ * `io.emit` broadcasts because they are unreliable under the Bun runtime; a
+ * per-socket emit is well-behaved and equivalent for our single-namespace use.
+ */
+function broadcast<E extends keyof ServerToClientEvents>(
+  event: E,
+  ...args: Parameters<ServerToClientEvents[E]>
+): void {
+  for (const socket of clients) socket.emit(event, ...args);
+}
+
 // Engine → clients. Books are emitted directly from connectors below; engine
 // emits the derived analytics.
-engine.on("opportunity", (opp) => io.emit("opportunity", opp));
-engine.on("trade", (trade) => io.emit("trade", trade));
-engine.on("portfolio", (stats) => io.emit("portfolio", stats));
-engine.on("latency", (stats) => io.emit("latency", stats));
+engine.on("opportunity", (opp) => broadcast("opportunity", opp));
+engine.on("trade", (trade) => broadcast("trade", trade));
+engine.on("portfolio", (stats) => broadcast("portfolio", stats));
+engine.on("latency", (stats) => broadcast("latency", stats));
 
-io.on("connection", (socket) => {
+io.on("connection", (socket: ArbSocket) => {
+  clients.add(socket);
+
   // Replay current state so a freshly-connected dashboard isn't blank.
   socket.emit("config", engineConfig);
   socket.emit("feeds", [...feedStatus.values()]);
@@ -51,6 +68,8 @@ io.on("connection", (socket) => {
     socket.emit("config", engineConfig);
     socket.emit("portfolio", engine.portfolioStats());
   });
+
+  socket.on("disconnect", () => clients.delete(socket));
 });
 
 // Wire up exchange connectors.
@@ -64,7 +83,7 @@ for (const connector of connectors) {
 
   connector.on("book", (book) => {
     engine.onBook(book);
-    io.emit("book", book);
+    broadcast("book", book);
     const fs = feedStatus.get(connector.id);
     if (fs) fs.lastUpdate = book.receivedAt;
   });
@@ -72,7 +91,7 @@ for (const connector of connectors) {
   connector.on("status", (status: ConnectionStatus) => {
     const fs = feedStatus.get(connector.id);
     if (fs) fs.status = status;
-    io.emit("feeds", [...feedStatus.values()]);
+    broadcast("feeds", [...feedStatus.values()]);
     console.log(`[${connector.id}] ${status}`);
   });
 

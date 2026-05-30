@@ -10,7 +10,7 @@ function num(name: string, fallback: number): number {
 
 export const PORT = num("PORT", 4000);
 
-const enabledExchanges = (process.env.EXCHANGES ?? "binance,kraken")
+const enabledExchanges = (process.env.EXCHANGES ?? "binance,kraken,okx,bybit")
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean) as ExchangeId[];

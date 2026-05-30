@@ -11,7 +11,7 @@ import type {
 } from "@arb/shared";
 import { feeModels, startingBalances } from "../config.js";
 import { OrderBookStore } from "../marketData/orderBookStore.js";
-import { computeArbitrage } from "./profit.js";
+import { computeArbitrage, topOfBookArb } from "./profit.js";
 import { RiskManager } from "./riskManager.js";
 import { Portfolio } from "./portfolio.js";
 import { ExecutionSimulator } from "./executionSimulator.js";
@@ -19,6 +19,8 @@ import { LatencyTracker } from "./latencyTracker.js";
 
 /** Minimum gap between executions on the same pair+direction (ms). */
 const EXECUTION_COOLDOWN_MS = 750;
+/** Throttle for emitting repeated *rejected* opportunities on the same route. */
+const OPPORTUNITY_THROTTLE_MS = 500;
 
 export interface EngineEvents {
   opportunity: (opp: Opportunity) => void;
@@ -40,6 +42,7 @@ export class ArbitrageEngine extends EventEmitter {
   private readonly simulator: ExecutionSimulator;
   private readonly latency = new LatencyTracker();
   private readonly lastTradeAt = new Map<string, number>();
+  private readonly lastOppAt = new Map<string, number>();
   private referencePrice: number;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -97,13 +100,20 @@ export class ArbitrageEngine extends EventEmitter {
 
     const buyFee = feeModels[buyBook.exchange].takerFee;
     const sellFee = feeModels[sellBook.exchange].takerFee;
-    const calc = computeArbitrage(
+
+    // Depth-walk for the net-profitable size. If fees eat the cross entirely,
+    // fall back to a top-of-book valuation so we still surface the detection
+    // and show *why* it was rejected (gross looked positive, net didn't).
+    let calc = computeArbitrage(
       buyBook.asks,
       sellBook.bids,
       buyFee,
       sellFee,
       this.config.maxNotionalUsd,
     );
+    if (calc.size <= 0) {
+      calc = topOfBookArb(buyBook, sellBook, buyFee, sellFee, this.config.maxNotionalUsd);
+    }
     if (calc.size <= 0) return;
 
     const now = Date.now();
@@ -134,6 +144,15 @@ export class ArbitrageEngine extends EventEmitter {
       },
       detectedAt: now,
     };
+
+    // Always surface executable opportunities; throttle repeated rejected ones
+    // on the same route so a persistent sub-fee cross doesn't flood the feed.
+    const routeKey = pairKey(buyBook.exchange, sellBook.exchange);
+    const throttled =
+      !opp.actionable &&
+      now - (this.lastOppAt.get(routeKey) ?? 0) < OPPORTUNITY_THROTTLE_MS;
+    if (throttled) return;
+    this.lastOppAt.set(routeKey, now);
 
     this.portfolio.recordOpportunity(opp.actionable);
     this.emit("opportunity", opp);

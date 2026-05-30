@@ -1,4 +1,4 @@
-import type { BookLevel } from "@arb/shared";
+import type { BookLevel, TopOfBook } from "@arb/shared";
 
 const EPS = 1e-9;
 
@@ -88,5 +88,38 @@ export function computeArbitrage(
     fees,
     grossProfit,
     netProfit,
+  };
+}
+
+/**
+ * Top-of-book valuation of a gross cross. Used to surface an opportunity that
+ * crossed at level 0 but doesn't survive fees — so the dashboard can show the
+ * detection and *why* we rejected it (gross looked positive, net didn't).
+ */
+export function topOfBookArb(
+  buyBook: TopOfBook,
+  sellBook: TopOfBook,
+  buyFee: number,
+  sellFee: number,
+  maxNotionalUsd: number,
+): ArbCalc {
+  const size = Math.min(
+    buyBook.asks[0]?.[1] ?? 0,
+    sellBook.bids[0]?.[1] ?? 0,
+    maxNotionalUsd / buyBook.bestAsk,
+  );
+  const cost = size * buyBook.bestAsk;
+  const revenue = size * sellBook.bestBid;
+  const fees = cost * buyFee + revenue * sellFee;
+  const grossProfit = revenue - cost;
+  return {
+    size,
+    avgBuyPrice: buyBook.bestAsk,
+    avgSellPrice: sellBook.bestBid,
+    cost,
+    revenue,
+    fees,
+    grossProfit,
+    netProfit: grossProfit - fees,
   };
 }

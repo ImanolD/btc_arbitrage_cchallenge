@@ -43,6 +43,15 @@ export abstract class BaseConnector extends EventEmitter {
   /** Parse a raw message and emit `book` when a fresh top-of-book is ready. */
   protected abstract handleMessage(raw: WebSocket.RawData): void;
 
+  /**
+   * Optional application-level keepalive payload sent on each heartbeat, for
+   * exchanges that require a JSON ping (e.g. Bybit) rather than a protocol ping
+   * frame. Return null to rely on the protocol-level ping only.
+   */
+  protected heartbeatPayload(): unknown | null {
+    return null;
+  }
+
   protected emitBook(book: TopOfBook): void {
     this.emit("book", book);
   }
@@ -91,7 +100,10 @@ export abstract class BaseConnector extends EventEmitter {
   private startHeartbeat(): void {
     this.clearHeartbeat();
     this.heartbeat = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) this.ws.ping();
+      if (this.ws?.readyState !== WebSocket.OPEN) return;
+      this.ws.ping();
+      const payload = this.heartbeatPayload();
+      if (payload != null) this.send(payload);
     }, 15_000);
   }
 
