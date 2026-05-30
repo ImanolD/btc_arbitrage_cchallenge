@@ -181,8 +181,12 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 
 ## Despliegue
 
-- **Web** → Vercel (directorio raíz `apps/web`).
-- **Servidor** → Railway / Render (directorio raíz `apps/server`) — requiere un proceso de larga vida para las conexiones WebSocket.
+Guía paso a paso en **[`docs/DEPLOY.md`](docs/DEPLOY.md)**. Resumen:
+
+- **Servidor** (`apps/server`) → Railway / Render / Fly. Proceso de larga vida (Express + Socket.IO + 8 feeds WebSocket en vivo). **Corre en Node, no en Bun** — los broadcasts de Socket.IO son poco fiables bajo Bun — y se ejecuta directo desde TypeScript con `tsx` (sin paso de compilación, porque `@arb/shared` se consume como código fuente TS). Arranque: `npm start`.
+- **Web** (`apps/web`) → Vercel / Netlify / Cloudflare Pages. Bundle estático de Vite; se construye con `VITE_SERVER_URL` apuntando al servidor.
+- **Directorio raíz = raíz del repo** en ambos: es un monorepo y la instalación debe correr desde la raíz para que el workspace `@arb/shared` se resuelva.
+- **Infra versionada**: [`railway.json`](railway.json) + [`nixpacks.toml`](nixpacks.toml), [`render.yaml`](render.yaml) (Blueprint: servidor + web) y [`vercel.json`](vercel.json) ya traen build/start/health-check configurados.
 
 ## Nota sobre el realismo
 

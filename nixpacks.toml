@@ -1,0 +1,19 @@
+# Build plan for Nixpacks (used by Railway and other Nixpacks-based hosts).
+#
+# Force a NODE runtime: Socket.IO broadcasts are unreliable under Bun, so the
+# server (Express + Socket.IO + 8 live exchange WebSocket feeds) must run on
+# Node. It runs straight from TypeScript via `tsx` (see `npm start`) — there is
+# no compile step because `@arb/shared` is consumed as TS source.
+providers = ["node"]
+
+[phases.install]
+cmds = ["npm install"]
+
+# No build step: the server executes from source via tsx. Override the default
+# Node build phase so the host doesn't try to `npm run build` the whole monorepo
+# (which would also build the web app and slow/fail the server deploy).
+[phases.build]
+cmds = []
+
+[start]
+cmd = "npm start"

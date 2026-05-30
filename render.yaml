@@ -1,0 +1,52 @@
+# Render Blueprint — deploy via Render → New → Blueprint, pointed at this repo.
+# Provisions both pieces: the always-on Node server and the static web app.
+services:
+  # ── Server: long-lived Node process (Express + Socket.IO + live feeds) ─────
+  - type: web
+    name: filobot-server
+    runtime: node
+    # The server must stay up to keep WebSocket feeds live, push WhatsApp updates
+    # within the 24h window and receive webhooks. The free tier sleeps on idle —
+    # use an always-on (paid) plan for a real demo.
+    plan: starter
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm start            # tsx apps/server/src/index.ts (Node, not Bun)
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Optional integrations — set in the dashboard or uncomment here:
+      # - key: ANTHROPIC_API_KEY
+      #   sync: false
+      # - key: MONGODB_URI
+      #   sync: false
+      # - key: KAPSO_API_KEY
+      #   sync: false
+      # - key: KAPSO_PHONE_NUMBER_ID
+      #   sync: false
+      # - key: KAPSO_WEBHOOK_SECRET
+      #   sync: false
+      # - key: WHATSAPP_NUMBER
+      #   sync: false
+
+  # ── Web: static Vite + React SPA ───────────────────────────────────────────
+  - type: web
+    name: filobot-web
+    runtime: static
+    # Install at the repo root so the `@arb/shared` workspace resolves, then build
+    # only the web app. Output lands in apps/web/dist.
+    rootDir: .
+    buildCommand: npm install && npm run build -w @arb/web
+    staticPublishPath: apps/web/dist
+    autoDeploy: true
+    envVars:
+      # Point at the server's public https URL, then redeploy (Vite bakes this in
+      # at build time). e.g. https://filobot-server.onrender.com
+      - key: VITE_SERVER_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
