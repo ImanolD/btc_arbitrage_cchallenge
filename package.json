@@ -1,0 +1,28 @@
+{
+  "name": "btc-arbitrage-cchallenge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Real-time Bitcoin cross-exchange arbitrage detection and simulated execution engine.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"bun run dev:server\" \"bun run dev:web\"",
+    "dev:server": "bun --filter @arb/server dev",
+    "dev:web": "bun --filter @arb/web dev",
+    "build": "bun run build:shared && bun run build:server && bun run build:web",
+    "build:shared": "bun --filter @arb/shared build",
+    "build:server": "bun --filter @arb/server build",
+    "build:web": "bun --filter @arb/web build",
+    "start": "bun --filter @arb/server start",
+    "typecheck": "bun --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
