@@ -6,6 +6,18 @@ Este documento mapea **cada criterio de evaluación** del reto a las decisiones 
 
 ---
 
+## Recorrido de 3 minutos para el jurado
+
+Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo:
+
+1. **(~30 s) Datos en vivo.** Abre el dashboard. Mira el **panel de mercado**: 8 exchanges transmitiendo bid/ask por WebSocket en tiempo real, agrupados por moneda de cotización (USDT / USD). El **panel de latencia** muestra la latencia de procesamiento p50/p95/p99 — el número que controlamos.
+2. **(~45 s) Bruto vs neto.** Mira el **feed de oportunidades**. Verás cruces marcados **SKIP** con su motivo: el cruce existía en bruto pero **no sobrevive las comisiones**. Esto demuestra que el cálculo neto es correcto y que no "imprimimos dinero" falso. Es esperable que el blotter en vivo esté tranquilo: el arbitraje limpio entre venues importantes es raro.
+3. **(~60 s) Ruta de ejecución completa (modo demo).** Activa el **modo demo** (botón en la barra superior; banner permanente, venue `demo` claramente etiquetado). Inyecta dislocaciones realistas que superan las comisiones, así que verás: oportunidades **EXEC**, llenados parciales en el **blotter**, la **curva de equity** moverse, los **balances por wallet** desviarse, y — tras suficiente desviación — un **rebalanceo** que cobra el withdrawal fee amortizado (KPI "costo de rebalanceo / operación").
+4. **(~30 s) Priorización + triangular.** Nota la oportunidad **"mejor ejecutable ahora"** resaltada (ejecutamos por mayor ganancia neta, no la primera). Abre el **panel triangular**: ciclos `USDT→BTC→ETH→USDT` en 5 venues, ambas direcciones, netos de tres fees.
+5. **(~15 s) Código.** Todo está tipado de punta a punta (`packages/shared`) y los feeds son **públicos y sin API keys** — el repo corre tal cual. Ver la tabla de abajo para el mapeo criterio↔archivo.
+
+---
+
 ## Tabla resumen
 
 | # | Criterio | Cómo lo resolvemos | Evidencia |
