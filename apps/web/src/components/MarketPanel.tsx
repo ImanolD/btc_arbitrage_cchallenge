@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { num, titleCase, usd } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface Props {
   books: Record<string, TopOfBook>;
@@ -85,7 +86,14 @@ export function MarketPanel({ books }: Props) {
         </Table>
 
         {bestCross && (
-          <div className="mt-3 flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
+          <div
+            className={cn(
+              "mt-3 flex items-center justify-between rounded-md border px-3 py-2",
+              bestCross.edge > 0
+                ? "border-profit/40 bg-gradient-to-r from-profit/15 to-transparent"
+                : "border-border bg-muted/30",
+            )}
+          >
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Best cross edge
             </span>
@@ -97,7 +105,7 @@ export function MarketPanel({ books }: Props) {
               <span
                 className={
                   bestCross.edge > 0
-                    ? "font-bold tabular-nums text-profit"
+                    ? "font-bold tabular-nums text-profit glow-profit"
                     : "font-bold tabular-nums text-muted-foreground"
                 }
               >

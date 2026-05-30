@@ -27,12 +27,19 @@ export function StatusBar({
   const { lang, setLang, t } = useLang();
   const demoOn = config?.demoMode ?? false;
   return (
-    <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border bg-card px-4 py-3">
-      <div className="flex items-center gap-2">
-        <Zap className="h-5 w-5 text-primary" />
-        <span className="text-sm font-bold uppercase tracking-widest">
-          BTC Arbitrage Terminal
-        </span>
+    <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-white/[0.06] bg-card/60 px-4 py-2.5 backdrop-blur-md">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-cyan-400 shadow-[0_0_20px_-2px_hsl(var(--primary)/0.6)]">
+          <Zap className="h-4 w-4 text-primary-foreground" strokeWidth={2.5} />
+        </div>
+        <div className="leading-tight">
+          <div className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-sm font-bold uppercase tracking-widest text-transparent">
+            BTC Arbitrage Terminal
+          </div>
+          <div className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground">
+            Cross-exchange execution engine
+          </div>
+        </div>
         {config && (
           <Badge variant="muted" className="ml-1">
             {config.symbol}
@@ -41,12 +48,17 @@ export function StatusBar({
       </div>
 
       <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            "h-2 w-2 rounded-full",
-            connected ? "bg-profit animate-pulse" : "bg-loss",
+        <span className="relative flex h-2 w-2">
+          {connected && (
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-profit opacity-70" />
           )}
-        />
+          <span
+            className={cn(
+              "relative inline-flex h-2 w-2 rounded-full",
+              connected ? "bg-profit" : "bg-loss",
+            )}
+          />
+        </span>
         <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
           {connected ? "Live" : "Disconnected"}
         </span>
@@ -78,7 +90,7 @@ export function StatusBar({
           <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
             Processing p50/p95
           </span>
-          <span className="text-sm font-semibold tabular-nums text-primary">
+          <span className="text-sm font-semibold tabular-nums text-primary glow-primary">
             {ms(latency?.processing.p50 ?? null)} / {ms(latency?.processing.p95 ?? null)}
           </span>
         </div>
