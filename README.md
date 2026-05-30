@@ -12,7 +12,7 @@ Real-time Bitcoin **cross-exchange arbitrage** detection and **simulated executi
 ## Architecture
 
 ```
-Exchange WS feeds (Binance, Kraken)
+Exchange WS feeds (Binance, Kraken, OKX, Bybit)
         │  normalized TopOfBook (bids/asks ladder + timestamps)
         ▼
   OrderBookStore (in-memory, per exchange)
@@ -40,9 +40,20 @@ btc_arbitrage_cchallenge/
 
 ## Tech stack
 
-- **Server:** Node/Bun + TypeScript, `ws` (exchange feeds), `socket.io` (push to UI), Express (health).
+- **Server:** Node + TypeScript, `ws` (exchange feeds), `socket.io` (push to UI), Express (health). Run with `tsx` in dev and plain Node in prod. (We intentionally do **not** run the server on Bun: `socket.io` broadcasts are unreliable under the current Bun runtime — see below.)
 - **Web:** Vite 6, React 18, TypeScript, TailwindCSS, **shadcn/ui** (Radix), Recharts.
-- **Tooling:** Bun workspaces.
+- **Tooling:** Bun workspaces (install + task running); the server process itself executes on Node.
+
+### Connectors
+
+| Exchange | Channel | Notes |
+|----------|---------|-------|
+| Binance | `@depth20@100ms` | partial-book snapshot stream |
+| Kraken | `book` v2 | snapshot + deltas, local book maintained |
+| OKX | `books5` | top-5 snapshot per change |
+| Bybit | `orderbook.50` | snapshot + deltas, JSON keepalive ping |
+
+Adding a venue is a single new file implementing `BaseConnector` plus one registry entry.
 
 ## Latency: how it's measured
 
@@ -84,7 +95,7 @@ All optional — see `.env.example`. Highlights:
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `EXCHANGES` | `binance,kraken` | Enabled exchange connectors |
+| `EXCHANGES` | `binance,kraken,okx,bybit` | Enabled exchange connectors |
 | `SYMBOL` | `BTCUSDT` | Trading pair to monitor |
 | `MAX_NOTIONAL_USD` | `50000` | Notional cap per simulated leg |
 | `MIN_NET_PROFIT_USD` | `1` | Minimum net profit to execute |

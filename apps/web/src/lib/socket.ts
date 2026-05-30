@@ -11,8 +11,9 @@ const SERVER_URL =
 export type ArbSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 export function createSocket(): ArbSocket {
+  // Prefer WebSocket but allow polling fallback for hosts that block WS upgrades.
   return io(SERVER_URL, {
-    transports: ["websocket"],
+    transports: ["websocket", "polling"],
     autoConnect: true,
   });
 }
