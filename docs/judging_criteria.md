@@ -14,7 +14,8 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 2. **(~45 s) Bruto vs neto.** Mira el **feed de oportunidades**. Verás cruces marcados **SKIP** con su motivo: el cruce existía en bruto pero **no sobrevive las comisiones**. Esto demuestra que el cálculo neto es correcto y que no "imprimimos dinero" falso. Es esperable que el blotter en vivo esté tranquilo: el arbitraje limpio entre venues importantes es raro.
 3. **(~60 s) Ruta de ejecución completa (modo demo).** Activa el **modo demo** (botón en la barra superior; banner permanente, venue `demo` claramente etiquetado). Inyecta dislocaciones realistas que superan las comisiones, así que verás: oportunidades **EXEC**, llenados parciales en el **blotter**, la **curva de equity** moverse, los **balances por wallet** desviarse, y — tras suficiente desviación — un **rebalanceo** que cobra el withdrawal fee amortizado (KPI "costo de rebalanceo / operación").
 4. **(~30 s) Valor esperado + triangular.** En el feed, las columnas **P(surv)** y **EV** muestran que decidimos por **valor esperado**, no por umbral: un cruce con cotización vieja baja su supervivencia y su EV se vuelve negativo → SKIP. La oportunidad **"mejor ejecutable ahora"** se resalta por mayor EV. Abre el **panel triangular**: ciclos `USDT→BTC→ETH→USDT` en 5 venues, ambas direcciones, netos de tres fees.
-5. **(~15 s) Código.** Todo está tipado de punta a punta (`packages/shared`) y los feeds son **públicos y sin API keys** — el repo corre tal cual. Ver la tabla de abajo para el mapeo criterio↔archivo.
+5. **(~20 s) Pregúntale a Filo.** Abre el chat de **Filo** (botón flotante 🐾) y pregúntale *"¿por qué descartaste ese cruce?"* o *"¿cómo va el P&L?"*: te lo explica en lenguaje llano con los **números reales del motor**. Es la capa de IA **fuera** del hot path — interpreta, nunca decide.
+6. **(~15 s) Código.** Todo está tipado de punta a punta (`packages/shared`) y los feeds son **públicos y sin API keys** — el repo corre tal cual. Ver la tabla de abajo para el mapeo criterio↔archivo.
 
 ---
 
@@ -27,7 +28,7 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 | 3 | **Solidez / robustez** | Órdenes parciales, *circuit breakers* (feed obsoleto, spread inverosímil, mínimo neto), reconexión con *backoff* | `engine/executionSimulator.ts`, `engine/riskManager.ts`, `exchanges/base.ts` |
 | 4 | **Estrategia / inteligencia** | 8 exchanges en 2 *pools* + **triangular** en 5 venues + **decisión por valor esperado (EV)** con P(supervivencia), **priorización por EV** | `engine/arbitrageEngine.ts`, `engine/triangularEngine.ts`, `engine/expectedValue.ts` |
 | 5 | **Arquitectura / código** | Monorepo tipado de punta a punta (tipos compartidos), connectors enchufables, documentación | `packages/shared`, `exchanges/`, `docs/ARCHITECTURE.md` |
-| 6 | **Experiencia / UI** | Terminal de trading en vivo (React + shadcn/ui), KPIs, feed bruto-vs-neto, blotter, equity, latencia, triangular, modo demo | `apps/web/src/*` |
+| 6 | **Experiencia / UI** | Terminal de trading en vivo (React + shadcn/ui), KPIs, feed bruto-vs-neto, blotter, equity, latencia, triangular, modo demo, **chat Filo** (IA grounded fuera del hot path) | `apps/web/src/*`, `apps/server/src/filo/*` |
 
 ---
 
@@ -122,6 +123,7 @@ Una ruta guiada para ver toda la solución en vivo, de lo real a lo demostrativo
 - **Feed de oportunidades** bruto vs neto, con verdict EXEC/SKIP y la mejor ejecutable resaltada.
 - **Blotter** de operaciones, **curva de equity**, **panel de latencia** y **panel triangular** multi-venue.
 - **Modo demo/replay** claramente etiquetado para mostrar la ruta de ejecución completa.
+- **Filo**, copiloto conversacional 🐾: narra lo relevante en vivo y responde preguntas (P&L, latencia, "por qué descartaste") con datos reales del motor. Determinista por defecto + capa opcional con Claude estrictamente *grounded*; la IA va **fuera** del hot path y nunca decide trades (`apps/server/src/filo/*`).
 
 ---
 
@@ -152,7 +154,10 @@ Porque las tres patas del ciclo deben ejecutarse en el **mismo libro** para ser 
 Es una **heurística transparente**, no una caja negra: `supervivencia ≈ exp(−edad/τ) · confianza_edge · soporte_liquidez`, y `EV = supervivencia · neto − (1−supervivencia) · costo_adverso`. Usa features de microestructura reales (latencia, magnitud del edge, *order-book imbalance*). La presentamos honestamente como heurística interpretable — cada término es explicable — precisamente porque un modelo de ML entrenado de verdad requeriría datos etiquetados y calibración que no fingimos tener. El punto es la **decisión por valor esperado** en vez de por umbral.
 
 **¿Usan IA? ¿Por qué no un LLM decidiendo los trades?**
-Postura explícita: **heurística/ML clásico para el alfa, nunca un LLM en el hot path.** El modelo de EV es ligero y determinista y vive en la ruta caliente. Un LLM en el loop de trading sería lento, no determinista y básicamente teatro — el jurado técnico lo notaría. La capa natural para un LLM sería *fuera* del hot path (narrar por qué se tomó o descartó cada trade); que entendamos esa distinción es, en sí, una señal de madurez.
+Postura explícita: **heurística/ML clásico para el alfa, nunca un LLM en el hot path.** El modelo de EV es ligero y determinista y vive en la ruta caliente. Un LLM en el loop de trading sería lento, no determinista y básicamente teatro — el jurado técnico lo notaría. La capa natural para un LLM es *fuera* del hot path — **y ahí sí la usamos**: ver la siguiente pregunta sobre Filo.
+
+**¿Y entonces qué es "Filo"? ¿Ahí sí usan un LLM?**
+**Filo** es el copiloto conversacional del dashboard (lleva el nombre de la gata del autor 🐾; ver `whyfilo.md`). **Narra e interpreta**, fuera del hot path, nunca decide trades. Tiene dos capas: (1) un **matcher determinista** que responde lo frecuente con los números reales del motor — instantáneo, sin costo, siempre disponible; y (2) una **capa opcional con Claude** para preguntas libres, estrictamente *grounded* (solo ve el estado en JSON, con instrucción de **nunca inventar cifras**) y con **degradación elegante**: si no hay API key, hay timeout o falla, vuelve a la respuesta determinista. Así obtenemos explicabilidad en lenguaje natural sin arriesgar la corrección ni la robustez de la demo (`apps/server/src/filo/*`, detalle en `ARCHITECTURE.md` §11).
 
 **¿Por qué corren el servidor en Node y no en Bun?**
 Usamos Bun para *workspaces* y tareas, pero el **proceso del servidor corre en Node**: bajo el runtime actual de Bun los *broadcasts* de Socket.IO resultaron poco confiables. Es una decisión pragmática, documentada en `ARCHITECTURE.md`.

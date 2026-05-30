@@ -18,6 +18,7 @@ const STEPS: TourStep[] = [
   { selector: "#tour-stats", titleKey: "tour.stats.title", bodyKey: "tour.stats.body", side: "bottom" },
   { selector: "#tour-charts", titleKey: "tour.charts.title", bodyKey: "tour.charts.body", side: "top" },
   { selector: "#tour-latency", titleKey: "tour.latency.title", bodyKey: "tour.latency.body", side: "right" },
+  { selector: "#tour-filo", titleKey: "tour.filo.title", bodyKey: "tour.filo.body", side: "left" },
   { selector: "#tour-demo", titleKey: "tour.demo.title", bodyKey: "tour.demo.body", side: "bottom" },
 ];
 

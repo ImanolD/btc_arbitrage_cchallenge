@@ -50,6 +50,9 @@ const STRINGS = {
     "tour.latency.title": "Latencia, medida con honestidad",
     "tour.latency.body":
       "Latencia de procesamiento p50/p95/p99 — el tiempo que tarda nuestro código, independiente del desfase de reloj con el exchange.",
+    "tour.filo.title": "Filo, tu copiloto 🐾",
+    "tour.filo.body":
+      "Abre el chat de Filo: te narra lo relevante en vivo (mejor oportunidad, ejecuciones, por qué descartó un cruce) y responde tus preguntas — P&L, latencia, oportunidades — siempre con datos reales del motor. La IA vive fuera del hot path, nunca decide los trades.",
     "tour.demo.title": "Enciéndelo y míralo ejecutar",
     "tour.demo.body":
       "Activa el modo demo para inyectar dislocaciones sintéticas (claramente etiquetadas) y ver el camino completo: detección → decisión por EV → ejecución → P&L.",
@@ -157,6 +160,9 @@ const STRINGS = {
     "tour.latency.title": "Latency, measured honestly",
     "tour.latency.body":
       "Processing latency p50/p95/p99 — the time our code takes, independent of clock skew between us and the exchange.",
+    "tour.filo.title": "Filo, your copilot 🐾",
+    "tour.filo.body":
+      "Open Filo's chat: it narrates what matters live (best opportunity, executions, why it skipped a cross) and answers your questions — P&L, latency, opportunities — always grounded in real engine data. The AI lives outside the hot path; it never decides trades.",
     "tour.demo.title": "Turn it on and watch it execute",
     "tour.demo.body":
       "Enable demo mode to inject clearly-labeled synthetic dislocations and see the full path: detection → EV decision → execution → P&L.",

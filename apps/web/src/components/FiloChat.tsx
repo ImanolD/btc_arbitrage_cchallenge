@@ -151,6 +151,7 @@ export function FiloChat({ messages, onAsk }: Props) {
 
       {/* Launcher */}
       <button
+        id="tour-filo"
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(

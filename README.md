@@ -100,6 +100,17 @@ Actívalo en vivo desde el dashboard (botón **Demo**), o arranca con él encend
 DEMO_MODE=true bun run dev:server
 ```
 
+## Filo: copiloto conversacional 🐾
+
+El dashboard incluye a **Filo**, un asistente de chat con la personalidad de la mascota del proyecto (una gata real — ver [`whyfilo.md`](whyfilo.md)). Filo cumple la idea de "IA **fuera** del hot path": **narra e interpreta**, nunca decide los trades.
+
+- **Narración en vivo.** Filo avisa cuando algo relevante ocurre — la mejor oportunidad accionable, ejecuciones, *por qué descartó* un cruce (bruto positivo pero neto negativo), cambio de modo demo o caída de un feed — más un **resumen periódico** de la sesión. Todo *throttled* por categoría para no saturar.
+- **Preguntas a demanda.** Pregúntale por P&L, equity, oportunidades, latencia, mejor trade, rebalanceo, supervivencia o venues. Las respuestas se construyen con los **números reales del motor**.
+- **Dos capas, con degradación elegante.** Primero un **matcher determinista** (instantáneo, sin costo, siempre disponible y *grounded*); para preguntas libres, una **capa opcional con Claude** estrictamente *grounded* (solo ve el estado en JSON, con instrucción de **nunca inventar cifras**). Si no hay API key, hay timeout o falla la llamada, Filo cae de vuelta a la respuesta determinista — la demo nunca depende de una llamada remota.
+- **Una sola mente, lista para más transportes.** El "cerebro" de Filo es agnóstico al transporte: hoy habla por Socket.IO con el dashboard; una integración con WhatsApp sería solo otro transporte.
+
+Es **opcional**: sin `ANTHROPIC_API_KEY`, Filo funciona igual con sus respuestas deterministas. Con la key, además maneja preguntas libres vía Claude.
+
 ## Ejecución local
 
 Requiere [Bun](https://bun.sh) (o Node ≥ 20).
@@ -137,6 +148,8 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 | `EV_ADVERSE_BPS` | `5` | Costo de selección adversa (bps) si el edge colapsa |
 | `EV_MIN_USD` | `0` | Valor esperado mínimo para ejecutar |
 | `DEMO_MODE` | `false` | Arrancar con el inyector demo/replay encendido |
+| `ANTHROPIC_API_KEY` | — | (Opcional) Habilita las respuestas libres de Filo vía Claude; sin ella, Filo usa solo sus respuestas deterministas |
+| `FILO_MODEL` | `claude-3-5-haiku-latest` | Modelo de Claude para las respuestas libres de Filo |
 
 ## Despliegue
 
@@ -146,3 +159,7 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 ## Nota sobre el realismo
 
 El arbitraje limpio de BTC/USDT entre venues importantes es **raro y de poca profundidad** — los mercados eficientes cierran estas brechas rápido. Un sistema que muestra *pocas pero genuinamente positivas* oportunidades (y rechaza las falsas) es más honesto que uno que aparenta "imprimir dinero", lo cual suele indicar un error de modelado.
+
+## ¿Por qué "Filobot"?
+
+Por **Filomena**, la gata del autor y mascota oficial del proyecto. Conoce a la jefa en [`whyfilo.md`](whyfilo.md). 🐾

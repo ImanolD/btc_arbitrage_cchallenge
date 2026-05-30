@@ -113,7 +113,7 @@ EV            = supervivencia · neto − (1 − supervivencia) · costo_adverso
 
 Una oportunidad debe pasar la compuerta de riesgo **y** tener `EV > EV_MIN_USD`. La ejecución se **prioriza por EV descendente**. El dashboard muestra **P(supervivencia)** y **EV** por oportunidad — convirtiendo la decisión en algo legible y defendible.
 
-> **IA — postura explícita:** *ML clásico/heurística para el alfa, nunca un LLM en el hot path.* El modelo de EV es ligero, determinista y vive en la ruta caliente; cualquier capa de lenguaje natural (explicar decisiones) iría **fuera** del hot path. El reto premia esta madurez de criterio.
+> **IA — postura explícita:** *ML clásico/heurística para el alfa, nunca un LLM en el hot path.* El modelo de EV es ligero, determinista y vive en la ruta caliente; cualquier capa de lenguaje natural (explicar decisiones) va **fuera** del hot path — exactamente lo que hace **Filo** (§11). El reto premia esta madurez de criterio.
 
 ### 5.4 Modelo de inventario vs. transferencia (decisión clave)
 
@@ -189,7 +189,32 @@ El book dislocado del venue demo se **excluye** del precio de referencia de marc
 
 ---
 
-## 11. Decisión de runtime (Node, no Bun)
+## 11. Filo: copiloto conversacional (IA fuera del hot path)
+
+**Filo** es la voz conversacional del bot — la realización concreta de la postura de IA de §5.3: el lenguaje natural **interpreta y narra**, pero **nunca decide trades** ni entra en la ruta caliente. (El nombre es por la gata del autor; ver `whyfilo.md`.)
+
+### 11.1 Una sola mente, agnóstica al transporte
+
+`FiloAgent` (`apps/server/src/filo/filoAgent.ts`) es un `EventEmitter` que se **suscribe a los eventos del motor** (`opportunity`, `trade`, `portfolio`, `latency`, `stats`) y mantiene una vista viva del estado. Emite mensajes que el servidor reenvía por **Socket.IO** y responde preguntas a demanda. El "cerebro" no sabe nada del transporte: hoy habla con el dashboard; un segundo transporte (p. ej. WhatsApp) sería solo otro consumidor de la misma mente.
+
+### 11.2 Dos capas, con degradación elegante
+
+1. **Determinista primero.** Un *matcher* de intención por palabras clave responde las preguntas frecuentes (P&L, equity, oportunidades, latencia, mejor trade, rebalanceo, supervivencia, venues, "por qué descartaste") **construyendo la respuesta con los números reales del motor**. Es instantáneo, sin costo, siempre disponible y bilingüe (ES/EN).
+2. **LLM opcional (Claude), estrictamente *grounded*.** Para preguntas libres que el *matcher* no cubre, `llm.ts` consulta a Claude con un *system prompt* que le ordena **usar solo el estado en JSON que le pasamos y nunca inventar cifras**. Tiene timeout duro (7 s) y, ante cualquier fallo (sin API key, error de red, timeout), **cae de vuelta a la respuesta determinista**: la demo nunca depende de una llamada remota. La capa se activa solo si existe `ANTHROPIC_API_KEY`.
+
+Las respuestas que vienen del LLM se marcan con una insignia **"AI"** en el chat, para ser transparentes sobre su origen.
+
+### 11.3 Narración dirigida por eventos (no spam)
+
+Filo narra lo **relevante**, no cada tick: mejor oportunidad accionable, ejecuciones (agregadas), un descarte ilustrativo (bruto positivo / neto negativo), cambio de modo demo, caída de feed, y un **resumen periódico** de la sesión. Cada categoría tiene su propio *throttle*, de modo que en modo en vivo (donde casi nada es accionable) Filo refuerza la narrativa honesta, y en modo demo cobra vida.
+
+### 11.4 Por qué esto suma (y no es teatro)
+
+La parte que gana puntos no es "tenemos un chatbot", sino **explicabilidad grounded**: Filo puede decir *por qué* se descartó un cruce (bruto vs neto vs EV) en lenguaje llano, conectando la sofisticación financiera del motor con un jurado no técnico — sin arriesgar la corrección, porque las cifras salen del motor, no del modelo.
+
+---
+
+## 12. Decisión de runtime (Node, no Bun)
 
 El servidor se ejecuta en **Node** (`tsx` en desarrollo, Node puro en producción), no en Bun. Durante el desarrollo se detectó que las **emisiones broadcast de `socket.io` son poco confiables bajo el runtime actual de Bun**: el cliente recibía el estado inicial y luego nada. Bajo Node, el stream funciona correctamente. Además se emite **por socket** (iterando los clientes) en lugar de `io.emit`, lo cual es equivalente para un único namespace y evita por completo la rareza del broadcast.
 
@@ -197,7 +222,7 @@ La instalación y la orquestación de tareas siguen usando **Bun workspaces**; s
 
 ---
 
-## 12. Entrega en tiempo real
+## 13. Entrega en tiempo real
 
 - **Servidor → cliente:** Socket.IO, emitiendo a cada socket conectado.
 - **Books de alta frecuencia:** el cliente los almacena en buffer y los vuelca por *frame* (`requestAnimationFrame`), de modo que el navegador nunca se convierte en el cuello de botella: se registran todos los eventos pero se renderiza a ~60 fps.
@@ -205,9 +230,10 @@ La instalación y la orquestación de tareas siguen usando **Bun workspaces**; s
 
 ---
 
-## 13. Compromisos y trabajo futuro
+## 14. Compromisos y trabajo futuro
 
 - **Profundidad del triangular:** hoy usa *top-of-book* sobre un nominal fijo (el estándar para detectar el edge); un *depth walk* de tres patas sería el siguiente paso.
 - **Persistencia:** el historial vive en memoria; una base de datos (p. ej. MongoDB) permitiría histórico entre sesiones.
 - **Más pares y monedas de cotización:** ya corremos 8 venues en dos *pools* (USDT/USD); la abstracción de connectors hace trivial sumar exchanges, y generalizar a más símbolos (p. ej. pools USDC) ampliaría el universo de oportunidades.
 - **Colocación:** desplegar el servidor en una región cercana al *edge* de los exchanges reduciría la latencia de feed (RTT).
+- **Filo por WhatsApp:** como el cerebro de Filo es agnóstico al transporte (§11.1), un segundo transporte vía WhatsApp permitiría que el jurado interactúe desde su teléfono (respuestas reactivas y alertas *opt-in* dentro de la ventana de sesión) — fuera del alcance de esta entrega, pero un paso directo.
