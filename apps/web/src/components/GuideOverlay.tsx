@@ -36,79 +36,84 @@ export function GuideOverlay({
       onClick={onClose}
     >
       <div
-        className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-xl"
+        className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+          className="absolute right-4 top-4 z-10 text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <h2 className="text-lg font-bold uppercase tracking-widest">
-          {t("guide.title")}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("guide.subtitle")}
-        </p>
-
-        <ol className="mt-5 space-y-3">
-          {steps.map((step) => (
-            <li key={step.n} className="flex gap-3">
-              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                {step.n}
-              </span>
-              <div>
-                <div className="text-sm font-semibold">
-                  {t(`tour.${step.key}.title` as StringKey)}
-                </div>
-                <p className="text-[13px] leading-relaxed text-muted-foreground">
-                  {t(`tour.${step.key}.body` as StringKey)}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ol>
-
-        <div className="mt-5 flex items-center justify-between gap-3 rounded-md border border-warn/40 bg-warn/10 px-4 py-3">
-          <div className="text-[13px]">
-            <div className="font-semibold text-warn">{t("guide.demoTitle")}</div>
-            <p className="text-muted-foreground">
-              {t("guide.demoBody")}{" "}
-              <Badge variant="muted">synthetic</Badge>
-            </p>
-          </div>
-          {!demoOn && (
-            <button
-              type="button"
-              onClick={onEnableDemo}
-              className="flex flex-none items-center gap-1.5 rounded-md border border-warn/50 bg-warn/15 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-warn transition-colors hover:bg-warn/25"
-            >
-              <FlaskConical className="h-3.5 w-3.5" />
-              {t("guide.enableDemo")}
-            </button>
-          )}
+        <div className="flex-none px-6 pb-3 pt-6">
+          <h2 className="text-lg font-bold uppercase tracking-widest">
+            {t("guide.title")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("guide.subtitle")}
+          </p>
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-border bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {t("guide.explore")}
-          </button>
-          <button
-            type="button"
-            onClick={onStartTour}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <Route className="h-4 w-4" />
-            {t("guide.start")}
-          </button>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6">
+          <ol className="space-y-2.5">
+            {steps.map((step) => (
+              <li key={step.n} className="flex gap-3">
+                <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                  {step.n}
+                </span>
+                <div>
+                  <div className="text-sm font-semibold">
+                    {t(`tour.${step.key}.title` as StringKey)}
+                  </div>
+                  <p className="text-[13px] leading-relaxed text-muted-foreground">
+                    {t(`tour.${step.key}.body` as StringKey)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-warn/40 bg-warn/10 px-4 py-3">
+            <div className="text-[13px]">
+              <div className="font-semibold text-warn">{t("guide.demoTitle")}</div>
+              <p className="text-muted-foreground">
+                {t("guide.demoBody")} <Badge variant="muted">synthetic</Badge>
+              </p>
+            </div>
+            {!demoOn && (
+              <button
+                type="button"
+                onClick={onEnableDemo}
+                className="flex flex-none items-center gap-1.5 rounded-md border border-warn/50 bg-warn/15 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-warn transition-colors hover:bg-warn/25"
+              >
+                <FlaskConical className="h-3.5 w-3.5" />
+                {t("guide.enableDemo")}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-none border-t border-border/60 bg-card px-6 py-4">
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-border bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t("guide.explore")}
+            </button>
+            <button
+              type="button"
+              onClick={onStartTour}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Route className="h-4 w-4" />
+              {t("guide.start")}
+            </button>
+          </div>
         </div>
       </div>
     </div>

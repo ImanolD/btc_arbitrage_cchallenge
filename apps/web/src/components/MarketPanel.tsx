@@ -55,44 +55,46 @@ export function MarketPanel({ books }: Props) {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Exchange</TableHead>
-              <TableHead>Quote</TableHead>
-              <TableHead className="text-right">Bid</TableHead>
-              <TableHead className="text-right">Ask</TableHead>
-              <TableHead className="text-right">Spread</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 && (
+        <div className="overflow-x-auto">
+          <Table className="[&_td]:px-1.5 [&_th]:px-1.5">
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="py-4 text-center text-muted-foreground">
-                  Waiting for market data…
-                </TableCell>
+                <TableHead>Exchange</TableHead>
+                <TableHead>Quote</TableHead>
+                <TableHead className="text-right">Bid</TableHead>
+                <TableHead className="text-right">Ask</TableHead>
+                <TableHead className="text-right">Spread</TableHead>
               </TableRow>
-            )}
-            {rows.map((b) => (
-              <TableRow key={b.exchange}>
-                <TableCell className="font-medium">{titleCase(b.exchange)}</TableCell>
-                <TableCell>
-                  <Badge variant="muted">{b.quote}</Badge>
-                </TableCell>
-                <TableCell className="text-right text-profit">{usd(b.bestBid)}</TableCell>
-                <TableCell className="text-right text-loss">{usd(b.bestAsk)}</TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {usd(b.bestAsk - b.bestBid)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-4 text-center text-muted-foreground">
+                    Waiting for market data…
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((b) => (
+                <TableRow key={b.exchange}>
+                  <TableCell className="font-medium">{titleCase(b.exchange)}</TableCell>
+                  <TableCell>
+                    <Badge variant="muted">{b.quote}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-profit">{usd(b.bestBid, 0)}</TableCell>
+                  <TableCell className="text-right text-loss">{usd(b.bestAsk, 0)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {usd(b.bestAsk - b.bestBid)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
         {bestCross && (
           <div
             className={cn(
-              "mt-3 flex items-center justify-between rounded-md border px-3 py-2",
+              "mt-3 flex flex-col gap-1.5 rounded-md border px-3 py-2",
               bestCross.edge > 0
                 ? "border-profit/40 bg-gradient-to-r from-profit/15 to-transparent"
                 : "border-border bg-muted/30",
@@ -101,10 +103,9 @@ export function MarketPanel({ books }: Props) {
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Best cross edge
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
               <Badge variant="muted">
-                Buy {titleCase(bestCross.buy.exchange)} → Sell{" "}
-                {titleCase(bestCross.sell.exchange)}
+                {titleCase(bestCross.buy.exchange)} → {titleCase(bestCross.sell.exchange)}
               </Badge>
               <span
                 className={

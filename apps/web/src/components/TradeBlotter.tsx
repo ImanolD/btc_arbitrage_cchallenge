@@ -28,7 +28,7 @@ export function TradeBlotter({ trades }: Props) {
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full">
-          <Table>
+          <Table className="[&_td]:px-1.5 [&_th]:px-1.5">
             <TableHeader>
               <TableRow>
                 <TableHead>Time</TableHead>
@@ -62,9 +62,9 @@ export function TradeBlotter({ trades }: Props) {
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">{usd(t.avgBuyPrice)}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">{usd(t.avgSellPrice)}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">{usd(t.fees)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{usd(t.avgBuyPrice, 0)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{usd(t.avgSellPrice, 0)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{usd(t.fees, 0)}</TableCell>
                   <TableCell className="text-right font-semibold text-profit">
                     {usd(t.netProfit)}
                   </TableCell>
