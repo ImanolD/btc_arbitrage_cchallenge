@@ -3,6 +3,8 @@ import type {
   EngineConfig,
   ExchangeId,
   FeedStatus,
+  FiloLang,
+  FiloMessage,
   LatencyStats,
   Opportunity,
   PortfolioStats,
@@ -14,6 +16,7 @@ import type {
 import { createSocket, type ArbSocket } from "@/lib/socket";
 
 const MAX_FEED_ITEMS = 60;
+const MAX_FILO_ITEMS = 80;
 
 export interface ArbState {
   connected: boolean;
@@ -26,6 +29,7 @@ export interface ArbState {
   feeds: FeedStatus[];
   triangular: TriangularOpportunity[];
   stats: StatsSnapshot | null;
+  filo: FiloMessage[];
 }
 
 const initialState: ArbState = {
@@ -39,6 +43,7 @@ const initialState: ArbState = {
   feeds: [],
   triangular: [],
   stats: null,
+  filo: [],
 };
 
 /**
@@ -49,6 +54,7 @@ const initialState: ArbState = {
  */
 export interface ArbStream extends ArbState {
   setDemo: (enabled: boolean) => void;
+  askFilo: (text: string, lang: FiloLang) => void;
 }
 
 export function useArbStream(): ArbStream {
@@ -59,6 +65,22 @@ export function useArbStream(): ArbStream {
 
   const setDemo = useCallback((enabled: boolean) => {
     socketRef.current?.emit("setDemo", enabled);
+  }, []);
+
+  // Optimistically render the user's bubble, then send; Filo's reply arrives
+  // asynchronously as a `filo` event and is appended below.
+  const askFilo = useCallback((text: string, lang: FiloLang) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const id = crypto.randomUUID();
+    setState((p) => ({
+      ...p,
+      filo: [
+        ...p.filo,
+        { id, role: "user", kind: "answer", text: { [lang]: trimmed }, ts: Date.now() },
+      ].slice(-MAX_FILO_ITEMS),
+    }));
+    socketRef.current?.emit("filoAsk", { id, text: trimmed, lang });
   }, []);
 
   useEffect(() => {
@@ -124,6 +146,10 @@ export function useArbStream(): ArbStream {
       setState((p) => ({ ...p, stats })),
     );
 
+    socket.on("filo", (msg: FiloMessage) =>
+      setState((p) => ({ ...p, filo: [...p.filo, msg].slice(-MAX_FILO_ITEMS) })),
+    );
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
@@ -131,7 +157,7 @@ export function useArbStream(): ArbStream {
     };
   }, []);
 
-  return { ...state, setDemo };
+  return { ...state, setDemo, askFilo };
 }
 
 export type { ExchangeId };

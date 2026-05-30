@@ -110,6 +110,18 @@ const STRINGS = {
     "stats.meanSurvival": "Supervivencia media",
     "stats.takeaway":
       "Conclusión: los cruces brutos abundan, pero casi ninguno sobrevive a fees, latencia y slippage. Por eso decidimos por valor esperado, no por umbral.",
+    "chat.open": "Chatear con Filo",
+    "chat.title": "Filo",
+    "chat.subtitle": "Tu copiloto de arbitraje",
+    "chat.placeholder": "Pregúntale a Filo…",
+    "chat.send": "Enviar",
+    "chat.typing": "Filo está escribiendo…",
+    "chat.ai": "IA",
+    "chat.suggestions": "Prueba preguntar:",
+    "chat.s.pnl": "¿Cómo va el P&L?",
+    "chat.s.opps": "¿Cuántas oportunidades?",
+    "chat.s.latency": "¿Qué latencia tienes?",
+    "chat.s.best": "¿Mejor oportunidad ahora?",
   },
   en: {
     "guide.title": "Filobot · BTC Arbitrage",
@@ -205,6 +217,18 @@ const STRINGS = {
     "stats.meanSurvival": "Mean survival",
     "stats.takeaway":
       "Takeaway: gross crosses are plentiful, but almost none survive fees, latency and slippage. That's why we decide by expected value, not a threshold.",
+    "chat.open": "Chat with Filo",
+    "chat.title": "Filo",
+    "chat.subtitle": "Your arbitrage copilot",
+    "chat.placeholder": "Ask Filo…",
+    "chat.send": "Send",
+    "chat.typing": "Filo is typing…",
+    "chat.ai": "AI",
+    "chat.suggestions": "Try asking:",
+    "chat.s.pnl": "How's the P&L?",
+    "chat.s.opps": "How many opportunities?",
+    "chat.s.latency": "What's your latency?",
+    "chat.s.best": "Best opportunity now?",
   },
 } as const;
 

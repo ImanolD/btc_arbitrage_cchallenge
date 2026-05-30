@@ -23,11 +23,14 @@ import { BaseConnector, createConnector, createConnectors } from "./exchanges/in
 import { ArbitrageEngine } from "./engine/arbitrageEngine.js";
 import { TriangularEngine } from "./engine/triangularEngine.js";
 import { DemoMarketMaker } from "./demo/demoMarketMaker.js";
+import { FiloAgent } from "./filo/filoAgent.js";
 
 const app = express();
 app.use(cors());
 
 const engine = new ArbitrageEngine(engineConfig);
+const filo = new FiloAgent(engineConfig);
+filo.attach(engine);
 const feedStatus = new Map<ExchangeId, FeedStatus>();
 
 app.get("/health", (_req, res) => {
@@ -67,6 +70,9 @@ engine.on("portfolio", (stats) => broadcast("portfolio", stats));
 engine.on("latency", (stats) => broadcast("latency", stats));
 engine.on("stats", (stats) => broadcast("stats", stats));
 
+// Filo's unprompted narrations go to everyone watching.
+filo.on("message", (msg) => broadcast("filo", msg));
+
 io.on("connection", (socket: ArbSocket) => {
   clients.add(socket);
 
@@ -75,6 +81,8 @@ io.on("connection", (socket: ArbSocket) => {
   socket.emit("feeds", [...feedStatus.values()]);
   socket.emit("portfolio", engine.portfolioStats());
   socket.emit("latency", engine.latencySnapshot());
+  // Replay Filo's recent chatter so the chat panel has context on open.
+  for (const msg of filo.backlog()) socket.emit("filo", msg);
 
   socket.on("sync", () => {
     socket.emit("config", engineConfig);
@@ -82,6 +90,16 @@ io.on("connection", (socket: ArbSocket) => {
   });
 
   socket.on("setDemo", (enabled: boolean) => setDemoMode(enabled));
+
+  // A question only concerns the asker; the reply goes back to that socket.
+  socket.on("filoAsk", (payload) => {
+    if (!payload || typeof payload.text !== "string") return;
+    const lang = payload.lang === "en" ? "en" : "es";
+    filo
+      .ask(payload.text.slice(0, 500), lang)
+      .then((answer) => socket.emit("filo", answer))
+      .catch((err) => console.warn("[filo] ask failed", err));
+  });
 
   socket.on("disconnect", () => clients.delete(socket));
 });
@@ -111,6 +129,7 @@ function setDemoMode(enabled: boolean): void {
   }
   broadcast("config", engineConfig);
   broadcast("feeds", [...feedStatus.values()]);
+  filo.noteDemo(enabled);
   console.log(`[demo] ${enabled ? "ENABLED" : "disabled"}`);
 }
 
@@ -136,8 +155,11 @@ for (const connector of connectors) {
 
   connector.on("status", (status: ConnectionStatus) => {
     const fs = feedStatus.get(connector.id);
+    const wasConnected = fs?.status === "connected";
     if (fs) fs.status = status;
     broadcast("feeds", [...feedStatus.values()]);
+    // Let Filo flag a venue that drops after having been live.
+    if (wasConnected && status === "disconnected") filo.noteFeedDown(connector.id);
     console.log(`[${connector.id}] ${status}`);
   });
 
@@ -145,6 +167,7 @@ for (const connector of connectors) {
 }
 
 engine.start();
+filo.start();
 
 // Triangular arbitrage: one independent engine per venue across the cycle
 // BTC/USDT · ETH/BTC · ETH/USDT. Each venue gets its own three connectors,
@@ -193,6 +216,7 @@ function shutdown() {
   for (const c of triConnectors) c.stop();
   demo.stop();
   engine.stop();
+  filo.stop();
   io.close();
   server.close(() => process.exit(0));
 }

@@ -11,6 +11,7 @@ import { TriangularPanel } from "@/components/TriangularPanel";
 import { DemoBanner } from "@/components/DemoBanner";
 import { GuideOverlay } from "@/components/GuideOverlay";
 import { StatsPanel } from "@/components/StatsPanel";
+import { FiloChat } from "@/components/FiloChat";
 import { useLang } from "@/lib/i18n";
 import { startTour } from "@/lib/tour";
 
@@ -107,6 +108,8 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      <FiloChat messages={state.filo} onAsk={state.askFilo} />
     </div>
   );
 }

@@ -297,6 +297,31 @@ export interface StatsSnapshot {
   venues: VenueActivity[];
 }
 
+/* ── Filo conversational agent ───────────────────────────────────────────── */
+
+/** Languages Filo can speak. Mirrors the dashboard's i18n toggle. */
+export type FiloLang = "es" | "en";
+
+/**
+ * A message in the Filo chat. `text` is bilingual when produced by the
+ * deterministic narrator (both languages filled); LLM answers fill only the
+ * asked language and the UI falls back to the other if needed.
+ */
+export interface FiloMessage {
+  id: string;
+  /** Who sent it. `user` messages are added client-side; server emits `filo`. */
+  role: "filo" | "user";
+  /** Narrated update vs. a reply to a question vs. the opening greeting. */
+  kind: "update" | "answer" | "greeting";
+  /** Bilingual copy; at least one language is present. */
+  text: Partial<Record<FiloLang, string>>;
+  /** Optional tone for styling (profit/loss/neutral cues). */
+  tone?: "info" | "good" | "warn" | "bad";
+  /** True when the reply came from the optional LLM layer (vs. deterministic). */
+  ai?: boolean;
+  ts: number;
+}
+
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 export interface FeedStatus {
@@ -317,6 +342,8 @@ export interface ServerToClientEvents {
   latency: (stats: LatencyStats) => void;
   feeds: (feeds: FeedStatus[]) => void;
   stats: (stats: StatsSnapshot) => void;
+  /** A message from Filo: a narrated update, a greeting, or a reply. */
+  filo: (msg: FiloMessage) => void;
 }
 
 export interface ClientToServerEvents {
@@ -324,4 +351,6 @@ export interface ClientToServerEvents {
   sync: () => void;
   /** Toggle the clearly-labeled demo/replay injector on or off. */
   setDemo: (enabled: boolean) => void;
+  /** Ask Filo a free-form question; the answer comes back as a `filo` event. */
+  filoAsk: (payload: { id: string; text: string; lang: FiloLang }) => void;
 }
