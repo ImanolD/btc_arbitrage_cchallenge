@@ -237,6 +237,8 @@ La instalación y la orquestación de tareas siguen usando **Bun workspaces**; s
 - **Servidor → cliente:** Socket.IO, emitiendo a cada socket conectado.
 - **Books de alta frecuencia:** el cliente los almacena en buffer y los vuelca por *frame* (`requestAnimationFrame`), de modo que el navegador nunca se convierte en el cuello de botella: se registran todos los eventos pero se renderiza a ~60 fps.
 - **Estadísticas agregadas** (portafolio, latencia): se empujan en una cadencia fija de 500 ms, fuera de la ruta caliente.
+- **Uptime / "en vivo":** `EngineConfig` incluye `startedAt` (epoch del arranque del proceso), que viaja en el evento `config` al conectar; la UI deriva la píldora **LIVE + uptime** sin estado extra.
+- **Reinicio de sesión:** el cliente emite `resetSession`; el servidor llama a `engine.reset()` — que reconstruye portafolio, simulador, agregador de estadísticas y *tracker* de latencia, y re-fija la línea base de equity al *mark* actual **sin tocar los feeds** — y luego difunde `reset` para que los clientes limpien sus buffers locales (oportunidades, trades, triangular).
 
 ---
 

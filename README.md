@@ -111,6 +111,12 @@ EV y P(supervivencia) se calculan y muestran **en ambos modos**, así que el efe
 
 El mismo panel afina los parámetros del modelo (`τ` de latencia, costo adverso, EV mínimo, ganancia neta mínima) y la cadencia de Filo (frecuencia del resumen y silenciar/activar narraciones). Todos los cambios viajan por Socket.IO, se **validan y acotan** en el servidor y se reflejan al instante en todos los clientes conectados.
 
+## Operación en vivo: portada, uptime y reinicio de sesión
+
+- **Portada de entrada.** El sistema abre con una **portada a pantalla completa** (logo, autoría y enlaces a repo/LinkedIn) que además funciona como **gate de carga real**: el botón "Continuar" permanece en estado *conectando…* hasta que el stream de Socket.IO está activo, y al entrar reproduce una transición de fundido/desenfoque hacia el dashboard.
+- **Indicador "en vivo" + uptime.** La barra de estado muestra una píldora **LIVE** con el **tiempo en línea desde el arranque** del servidor (`startedAt` viaja en el `config`). Como el motor procesa en continuo desde el despliegue, el gran contador de oportunidades *analizadas* es evidencia de **rendimiento y uptime reales**; la historia honesta está en la **proporción** analizadas vs. accionables.
+- **Reinicio de sesión.** Desde **Ajustes** se pueden **poner a cero las métricas** (P&L, trades, oportunidades, curva de equity) — con confirmación — para observar desde cero (ideal junto al modo demo). El motor reconstruye el portafolio y re-fija la línea base de equity al *mark* actual; **no toca los feeds en vivo**. El servidor reemite snapshots y avisa a los clientes (`reset`) para limpiar sus buffers locales.
+
 ## Filo: copiloto conversacional 🐾
 
 El dashboard incluye a **Filo**, un asistente de chat con la personalidad de la mascota del proyecto (una gata real — ver [`whyfilo.md`](whyfilo.md)). Filo cumple la idea de "IA **fuera** del hot path": **narra e interpreta**, nunca decide los trades.
