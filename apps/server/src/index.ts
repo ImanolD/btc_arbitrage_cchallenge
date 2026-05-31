@@ -79,7 +79,9 @@ app.post("/api/whatsapp/webhook", (req, res) => {
     return;
   }
   res.status(200).send("ok");
-  whatsapp.handleWebhook(req.body).catch((err) => console.warn("[whatsapp] webhook", err));
+  whatsapp
+    .handleWebhook(req.body, req.header("X-Webhook-Event"))
+    .catch((err) => console.warn("[whatsapp] webhook", err));
 });
 
 const server = http.createServer(app);

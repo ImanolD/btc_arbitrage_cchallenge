@@ -62,12 +62,28 @@ export class WhatsAppBridge {
     return n;
   }
 
-  /** Handle a verified inbound webhook payload from Kapso. */
-  async handleWebhook(body: any): Promise<void> {
-    if (!body || body.event !== "whatsapp.message.received") return;
-    const msg = body.message;
-    const from = String(msg?.from ?? "").replace(/[^0-9]/g, "");
-    const text = typeof msg?.text?.body === "string" ? msg.text.body : "";
+  /**
+   * Handle a verified webhook payload from Kapso.
+   *
+   * Kapso's v2 message payloads do NOT carry a top-level `event` field (only
+   * `{ message, conversation, is_new_conversation, phone_number_id }`); the
+   * event type, when available, arrives in the `X-Webhook-Event` header. So we
+   * detect inbound messages structurally and ignore our own outbound echoes
+   * (`whatsapp.message.sent/delivered/read/failed`) to avoid reply loops.
+   */
+  async handleWebhook(body: any, event?: string): Promise<void> {
+    const msg = body?.message;
+    if (!msg) return;
+    if (event && event !== "whatsapp.message.received") return;
+    if (msg.kapso?.direction && msg.kapso.direction !== "inbound") return;
+    if (msg.type && msg.type !== "text") return;
+    const from = String(msg.from ?? body?.conversation?.phone_number ?? "").replace(/[^0-9]/g, "");
+    const text =
+      typeof msg.text?.body === "string"
+        ? msg.text.body
+        : typeof msg.kapso?.content === "string"
+          ? msg.kapso.content
+          : "";
     if (!from || !text) return;
     await this.onInbound(from, text);
   }
