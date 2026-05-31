@@ -29,14 +29,36 @@ La **portada** funciona como *gate* de carga real: espera a que el stream de Soc
 </tr>
 <tr>
 <td width="50%" valign="top">
-<b>Filo, copiloto conversacional</b> 🐾 — narra ejecuciones y <i>por qué descartó</i> cruces frágiles (bruto positivo, neto negativo), responde preguntas con los números reales del motor y ofrece el opt-in a WhatsApp.
+<b>Diseño responsive</b> — en móvil la cabecera colapsa a un menú, las tarjetas se apilan y los paneles se adaptan, manteniendo legibles books, P&L y latencia. Pensado para que los jueces lo abran desde el teléfono.
+<br/><br/>
+<img src="assets/screenshots/08-mobile.png" alt="Dashboard de Filobot en vista móvil" width="280" />
+</td>
+<td width="50%" valign="top">
+<b>Recorrido guiado</b> — un tour interactivo (driver.js) ilumina cada panel y explica la tesis paso a paso (modelo de inventario, EV, latencia…), para que se entienda sin contexto previo.
+<br/><br/>
+<img src="assets/screenshots/07-guided-tour.png" alt="Recorrido guiado paso a paso sobre la UI" />
+</td>
+</tr>
+</table>
+
+**Filo, en dos transportes** 🐾 — el mismo cerebro (matcher determinista + capa opcional con Claude, siempre *grounded*) narra y responde tanto en el dashboard como en WhatsApp:
+
+<table>
+<tr>
+<td width="40%" valign="top">
+<b>Copiloto en el dashboard</b> — narra ejecuciones y <i>por qué descartó</i> cruces frágiles (bruto positivo, neto negativo) y responde con los números reales del motor.
 <br/><br/>
 <img src="assets/screenshots/05-filo-chat.png" alt="Filo, el copiloto conversacional, en el dashboard" />
 </td>
-<td width="50%" valign="top">
-<b>Filo por WhatsApp</b> 📱 — el mismo cerebro (determinista + LLM) por WhatsApp vía Kapso: avisos en vivo y preguntas libres en la ventana de 24 h. <code>BAJA</code>/<code>STOP</code> cancela.
+<td width="30%" valign="top">
+<b>Opt-in por QR</b> — en escritorio, un código QR abre WhatsApp en el teléfono con el mensaje de consentimiento ya listo.
 <br/><br/>
-<img src="assets/screenshots/06-whatsapp.png" alt="Conversación con Filo por WhatsApp" />
+<img src="assets/screenshots/09-whatsapp-qr.png" alt="Modal con código QR para chatear con Filo por WhatsApp" />
+</td>
+<td width="30%" valign="top">
+<b>Filo por WhatsApp</b> 📱 — avisos en vivo y preguntas libres vía Kapso dentro de la ventana de 24 h. <code>BAJA</code>/<code>STOP</code> cancela.
+<br/><br/>
+<img src="assets/screenshots/06-whatsapp.png" alt="Conversación real con Filo por WhatsApp" />
 </td>
 </tr>
 </table>
