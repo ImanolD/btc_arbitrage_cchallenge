@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowDownRight,
@@ -17,6 +18,19 @@ import type { StringKey } from "@/lib/i18n";
 
 interface Props {
   portfolio: PortfolioStats | null;
+  /** Epoch ms the server booted; used for the "live since · uptime" label. */
+  startedAt?: number;
+}
+
+/** Compact uptime, e.g. "3d 4h", "5h 12m", or "8m". */
+function formatUptime(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 type Tone = "profit" | "loss" | "default";
@@ -31,12 +45,23 @@ interface Item {
   title?: string;
 }
 
-export function StatCards({ portfolio }: Props) {
+export function StatCards({ portfolio, startedAt }: Props) {
   const pnl = portfolio?.realizedPnlUsd ?? 0;
   const equity = portfolio?.currentEquityUsd ?? 0;
   const startEquity = portfolio?.startingEquityUsd ?? 0;
   const equityDelta = equity - startEquity;
   const equityDeltaPct = startEquity ? equityDelta / startEquity : 0;
+
+  // Tick once a minute so the uptime label stays current without churn.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const uptime = startedAt ? formatUptime(now - startedAt) : null;
+  const liveSince = startedAt
+    ? `Live since ${new Date(startedAt).toLocaleString()}`
+    : undefined;
 
   const items: Item[] = [
     {
@@ -69,7 +94,8 @@ export function StatCards({ portfolio }: Props) {
       value: String(portfolio?.totalOpportunities ?? 0),
       icon: Gauge,
       info: "opps",
-      sub: `${portfolio?.actionableOpportunities ?? 0} actionable`,
+      sub: `${portfolio?.actionableOpportunities ?? 0} actionable${uptime ? ` · live ${uptime}` : ""}`,
+      title: liveSince,
     },
     {
       label: "Win rate",

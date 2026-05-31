@@ -79,7 +79,7 @@ export default function App() {
 
       <main className="flex flex-1 flex-col gap-3 p-3">
         <div id="tour-stats">
-          <StatCards portfolio={state.portfolio} />
+          <StatCards portfolio={state.portfolio} startedAt={state.config?.startedAt} />
         </div>
 
         <div className="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-12">

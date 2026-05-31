@@ -231,6 +231,8 @@ export interface FiloConfig {
 /** Engine configuration echoed to the dashboard. */
 export interface EngineConfig {
   symbol: string;
+  /** Epoch ms when the server process booted — drives the "live since" label. */
+  startedAt: number;
   exchanges: ExchangeId[];
   maxNotionalUsd: number;
   minNetProfitUsd: number;

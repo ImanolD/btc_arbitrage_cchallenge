@@ -55,6 +55,7 @@ export const TRIANGULAR_SYMBOLS = {
 
 export const engineConfig: EngineConfig = {
   symbol: SYMBOL,
+  startedAt: Date.now(),
   exchanges: enabledExchanges,
   maxNotionalUsd: num("MAX_NOTIONAL_USD", 50_000),
   minNetProfitUsd: num("MIN_NET_PROFIT_USD", 1),
