@@ -4,6 +4,43 @@
 
 > El código y los comentarios están en inglés (estándar de ingeniería); la documentación está en español por tratarse de una competencia en México. Ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para el detalle técnico y [`docs/judging_criteria.md`](docs/judging_criteria.md) para el mapeo criterio-por-criterio + FAQ.
 
+## Vistazo
+
+La **portada** funciona como *gate* de carga real: espera a que el stream de Socket.IO esté en vivo antes de dar entrada a la terminal.
+
+![Portada de Filobot](assets/screenshots/01-cover.png)
+
+**Terminal en vivo** — books por exchange, feed de oportunidades (bruto → neto → **EV** con veredicto `EXEC`/`SKIP`), curva de equity, blotter de fills simulados y panel de latencia p50/p95/p99. La píldora **LIVE** muestra el *uptime* real desde el arranque, y el gran contador de oportunidades *analizadas* vs. *accionables* cuenta la historia honesta.
+
+![Terminal de arbitraje en vivo](assets/screenshots/02-dashboard.png)
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<b>Ajustes del motor</b> — conmuta <i>en vivo</i> entre decisión por <b>EV</b> y por <b>umbral de spread</b>, y afina τ de latencia, costo adverso, EV mínimo y la cadencia de Filo. Los cambios viajan por Socket.IO y se reflejan al instante en el feed.
+<br/><br/>
+<img src="assets/screenshots/03-settings-ev-vs-spread.png" alt="Panel de ajustes del motor: EV vs spread" />
+</td>
+<td width="50%" valign="top">
+<b>Análisis estadístico</b> — calculado en el servidor sobre <i>toda</i> la población de cruces detectados desde el arranque (datos reales, no narrativa): distribución de spread bruto vs. neto y actividad barato/caro por venue.
+<br/><br/>
+<img src="assets/screenshots/04-statistical-analysis.png" alt="Análisis estadístico sobre la población completa de cruces" />
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<b>Filo, copiloto conversacional</b> 🐾 — narra ejecuciones y <i>por qué descartó</i> cruces frágiles (bruto positivo, neto negativo), responde preguntas con los números reales del motor y ofrece el opt-in a WhatsApp.
+<br/><br/>
+<img src="assets/screenshots/05-filo-chat.png" alt="Filo, el copiloto conversacional, en el dashboard" />
+</td>
+<td width="50%" valign="top">
+<b>Filo por WhatsApp</b> 📱 — el mismo cerebro (determinista + LLM) por WhatsApp vía Kapso: avisos en vivo y preguntas libres en la ventana de 24 h. <code>BAJA</code>/<code>STOP</code> cancela.
+<br/><br/>
+<img src="assets/screenshots/06-whatsapp.png" alt="Conversación con Filo por WhatsApp" />
+</td>
+</tr>
+</table>
+
 ## Por qué este diseño
 
 - **Dirigido por eventos, no por polling.** El motor reevalúa en cada *tick* del order book y solo reverifica los pares de venues afectados por esa actualización — O(N) por actualización, no O(N²).
