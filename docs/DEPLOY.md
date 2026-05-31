@@ -39,8 +39,9 @@ Railway keeps the process warm (important: the server must stay up to keep WebSo
    - `nixpacks.toml` forces a **Node** runtime (not Bun) and installs with `npm install` (no app build step — the server runs from TS source via `tsx`).
    - `railway.json` sets the start command (`npm start` → `tsx apps/server/src/index.ts`), the `/health` health check, and an on-failure restart policy.
    - You normally don't need to touch the build/start fields in the UI.
-4. **Networking → Generate Domain.** You get something like `https://btc-arb-server.up.railway.app`. Save it — the web app needs it.
-5. **Variables:** see [section 3](#3-server-environment-variables). At minimum the server runs with **zero** config (sensible defaults, in-memory storage, WhatsApp disabled). `PORT` is injected by Railway automatically — the server reads `process.env.PORT`.
+4. **Pick a non-US region** (Settings → Region) — e.g. **EU West (Amsterdam)** or **Southeast Asia (Singapore)**. This matters: **Binance.com geo-blocks US IPs (HTTP 451)**, so deploying in a US region (like `iad1`) leaves the Binance feed permanently `disconnected`. A region change only takes effect on a **new deployment**, so redeploy after changing it. (Alternatively, drop Binance via the `EXCHANGES`/`TRIANGULAR_EXCHANGES` vars — see [section 3](#3-server-environment-variables).)
+5. **Networking → Generate Domain.** You get something like `https://btc-arb-server.up.railway.app`. Save it — the web app needs it.
+6. **Variables:** see [section 3](#3-server-environment-variables). At minimum the server runs with **zero** config (sensible defaults, in-memory storage, WhatsApp disabled). `PORT` is injected by Railway automatically — the server reads `process.env.PORT`.
 
 **Verify:** open `https://<your-server>/health` — you should get JSON with `"ok": true` and a `feeds` array showing each exchange `"connected"`.
 
@@ -57,7 +58,7 @@ The repo ships [`render.yaml`](../render.yaml), which provisions **both** the se
 <details>
 <summary>Fly.io alternative</summary>
 
-`fly launch` from the repo root, choose a Node builder, set the internal port to whatever you put in `PORT` (default 4000), and use `npm start` as the process command. Make sure the service exposes HTTP/WS on 443.
+`fly launch` from the repo root, choose a Node builder, set the internal port to whatever you put in `PORT` (default 4000), and use `npm start` as the process command. Make sure the service exposes HTTP/WS on 443. Pick a **non-US region** so Binance connects (e.g. `fly regions set ams`).
 </details>
 
 ---
