@@ -35,3 +35,14 @@ export function time(t: number): string {
 export function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+/** Compact elapsed time since `ms` epoch, e.g. "3d 4h", "5h 12m", or "8m". */
+export function uptime(sinceMs: number, now = Date.now()): string {
+  const s = Math.max(0, Math.floor((now - sinceMs) / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}

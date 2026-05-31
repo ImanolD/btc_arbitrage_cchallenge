@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RotateCcw, X } from "lucide-react";
+import { RefreshCw, RotateCcw, X } from "lucide-react";
 import type { EngineConfig, EngineConfigPatch } from "@arb/shared";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ interface Props {
   open: boolean;
   config: EngineConfig | null;
   onUpdate: (patch: EngineConfigPatch) => void;
+  onReset: () => void;
   onClose: () => void;
 }
 
@@ -21,7 +22,7 @@ const DEFAULTS: EngineConfigPatch = {
 
 const DIGEST_OPTIONS = [0, 30_000, 60_000, 120_000, 300_000];
 
-export function SettingsPanel({ open, config, onUpdate, onClose }: Props) {
+export function SettingsPanel({ open, config, onUpdate, onReset, onClose }: Props) {
   const { t } = useLang();
   if (!open) return null;
 
@@ -55,7 +56,7 @@ export function SettingsPanel({ open, config, onUpdate, onClose }: Props) {
           {!config ? (
             <p className="py-12 text-center text-sm text-muted-foreground">…</p>
           ) : (
-            <Body config={config} onUpdate={onUpdate} />
+            <Body config={config} onUpdate={onUpdate} onReset={onReset} />
           )}
         </div>
       </div>
@@ -63,7 +64,15 @@ export function SettingsPanel({ open, config, onUpdate, onClose }: Props) {
   );
 }
 
-function Body({ config, onUpdate }: { config: EngineConfig; onUpdate: Props["onUpdate"] }) {
+function Body({
+  config,
+  onUpdate,
+  onReset,
+}: {
+  config: EngineConfig;
+  onUpdate: Props["onUpdate"];
+  onReset: Props["onReset"];
+}) {
   const { t } = useLang();
   const evMode = config.decisionMode === "ev";
 
@@ -175,6 +184,23 @@ function Body({ config, onUpdate }: { config: EngineConfig; onUpdate: Props["onU
         <RotateCcw className="h-3.5 w-3.5" />
         {t("settings.reset")}
       </button>
+
+      {/* Session reset: zero the metrics (not the live feeds). Confirmed. */}
+      <Section title={t("settings.session")}>
+        <p className="text-[12px] leading-relaxed text-muted-foreground">
+          {t("settings.session.help")}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm(t("settings.session.confirm"))) onReset();
+          }}
+          className="mt-1 flex items-center gap-2 rounded-md border border-loss/40 bg-loss/10 px-3 py-2 text-[13px] font-semibold text-loss transition-colors hover:bg-loss/20"
+        >
+          <RefreshCw className="h-4 w-4" />
+          {t("settings.session.reset")}
+        </button>
+      </Section>
     </div>
   );
 }

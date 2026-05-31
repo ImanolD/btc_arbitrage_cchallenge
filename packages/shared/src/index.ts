@@ -377,6 +377,8 @@ export interface ServerToClientEvents {
   stats: (stats: StatsSnapshot) => void;
   /** A message from Filo: a narrated update, a greeting, or a reply. */
   filo: (msg: FiloMessage) => void;
+  /** Session metrics were reset; clients should clear their local feeds. */
+  reset: () => void;
 }
 
 export interface ClientToServerEvents {
@@ -388,4 +390,6 @@ export interface ClientToServerEvents {
   filoAsk: (payload: { id: string; text: string; lang: FiloLang }) => void;
   /** Live-tune engine + Filo settings; server echoes the new `config`. */
   updateConfig: (patch: EngineConfigPatch) => void;
+  /** Reset session metrics (P&L, trades, opportunities, equity curve). */
+  resetSession: () => void;
 }

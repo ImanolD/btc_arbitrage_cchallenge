@@ -49,10 +49,10 @@ interface Candidate {
 export class ArbitrageEngine extends EventEmitter {
   private readonly store = new OrderBookStore();
   private readonly risk: RiskManager;
-  private readonly portfolio: Portfolio;
-  private readonly simulator: ExecutionSimulator;
-  private readonly latency = new LatencyTracker();
-  private readonly stats = new StatsAggregator();
+  private portfolio: Portfolio;
+  private simulator: ExecutionSimulator;
+  private latency = new LatencyTracker();
+  private stats = new StatsAggregator();
   private readonly lastTradeAt = new Map<string, number>();
   private readonly lastOppAt = new Map<string, number>();
   private referencePrice: number;
@@ -65,18 +65,46 @@ export class ArbitrageEngine extends EventEmitter {
     super();
     this.referencePrice = 0;
     this.risk = new RiskManager(config);
-    // Always provision a `demo` wallet so the demo/replay injector can execute,
-    // regardless of whether demo mode is on at boot.
-    const walletExchanges: ExchangeId[] = config.exchanges.includes("demo")
-      ? config.exchanges
-      : [...config.exchanges, "demo"];
-    this.portfolio = new Portfolio(
+    this.portfolio = this.freshPortfolio();
+    this.simulator = new ExecutionSimulator(this.portfolio);
+  }
+
+  /**
+   * A fresh portfolio at starting balances. Always provisions a `demo` wallet so
+   * the demo/replay injector can execute regardless of whether demo mode is on.
+   * The equity baseline is locked to the current mark (or deferred to the first
+   * real price when called at boot, where referencePrice is still 0).
+   */
+  private freshPortfolio(): Portfolio {
+    const walletExchanges: ExchangeId[] = this.config.exchanges.includes("demo")
+      ? this.config.exchanges
+      : [...this.config.exchanges, "demo"];
+    const portfolio = new Portfolio(
       walletExchanges,
       startingBalances.usdPerExchange,
       startingBalances.btcPerExchange,
-      this.referencePrice, // 0 at boot → baseline deferred to first real price
+      this.referencePrice,
     );
+    if (this.referencePrice > 0) portfolio.ensureBaseline(this.referencePrice);
+    return portfolio;
+  }
+
+  /**
+   * Reset session metrics to a clean slate — P&L, trades, opportunity counts,
+   * equity curve and the empirical analysis population — without touching the
+   * live market feeds. Lets a judge zero the dashboard and watch from scratch
+   * (great paired with Demo mode). Re-baselines equity at the current mark.
+   */
+  reset(): void {
+    this.portfolio = this.freshPortfolio();
     this.simulator = new ExecutionSimulator(this.portfolio);
+    this.stats = new StatsAggregator();
+    this.latency = new LatencyTracker();
+    this.lastTradeAt.clear();
+    this.lastOppAt.clear();
+    this.emit("portfolio", this.portfolioStats());
+    this.emit("latency", this.latencySnapshot());
+    this.emit("stats", this.stats.snapshot());
   }
 
   start(): void {

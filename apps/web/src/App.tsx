@@ -13,6 +13,7 @@ import { GuideOverlay } from "@/components/GuideOverlay";
 import { StatsPanel } from "@/components/StatsPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { FiloChat } from "@/components/FiloChat";
+import { CoverPage } from "@/components/CoverPage";
 import { useLang } from "@/lib/i18n";
 import { startTour } from "@/lib/tour";
 
@@ -21,14 +22,16 @@ const GUIDE_SEEN_KEY = "arb_guide_seen";
 export default function App() {
   const state = useArbStream();
   const { t } = useLang();
+  const [entered, setEntered] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Auto-open the guide on first visit so judges aren't dropped into a cold UI.
+  // Auto-open the guide on first visit — but only after the cover is dismissed,
+  // so the onboarding doesn't stack behind the splash.
   useEffect(() => {
-    if (localStorage.getItem(GUIDE_SEEN_KEY) !== "1") setGuideOpen(true);
-  }, []);
+    if (entered && localStorage.getItem(GUIDE_SEEN_KEY) !== "1") setGuideOpen(true);
+  }, [entered]);
 
   const closeGuide = () => {
     localStorage.setItem(GUIDE_SEEN_KEY, "1");
@@ -43,6 +46,9 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-background">
+      {!entered && (
+        <CoverPage connected={state.connected} onEnter={() => setEntered(true)} />
+      )}
       <GuideOverlay
         open={guideOpen}
         demoOn={state.config?.demoMode ?? false}
@@ -62,6 +68,7 @@ export default function App() {
         open={settingsOpen}
         config={state.config}
         onUpdate={state.updateConfig}
+        onReset={state.resetSession}
         onClose={() => setSettingsOpen(false)}
       />
       <StatusBar

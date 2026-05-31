@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -14,7 +14,7 @@ import {
 import type { EngineConfig, FeedStatus, LatencyStats } from "@arb/shared";
 import { Badge } from "@/components/ui/badge";
 import { FilobotLogo } from "@/components/FilobotLogo";
-import { ms, titleCase } from "@/lib/format";
+import { ms, titleCase, uptime as fmtUptime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 import { REPO_URL } from "@/lib/repo";
@@ -48,6 +48,17 @@ export function StatusBar({
   const modeLabel = config ? (config.decisionMode === "ev" ? "EV" : "Spread") : null;
   const close = () => setMenuOpen(false);
 
+  // Ticking uptime for the "live since" pill (once a minute is plenty).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const up = config?.startedAt ? fmtUptime(config.startedAt, now) : null;
+  const liveSince = config?.startedAt
+    ? `Live since ${new Date(config.startedAt).toLocaleString()}`
+    : undefined;
+
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-white/[0.06] bg-card/60 px-4 py-2.5 backdrop-blur-md">
       <div className="flex items-center gap-2.5">
@@ -69,7 +80,13 @@ export function StatusBar({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-full border px-2.5 py-1",
+          connected ? "border-profit/30 bg-profit/10" : "border-loss/30 bg-loss/10",
+        )}
+        title={connected ? liveSince : undefined}
+      >
         <span className="relative flex h-2 w-2">
           {connected && (
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-profit opacity-70" />
@@ -81,9 +98,22 @@ export function StatusBar({
             )}
           />
         </span>
-        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-          {connected ? "Live" : "Disconnected"}
+        <span
+          className={cn(
+            "text-[11px] font-bold uppercase tracking-wider",
+            connected ? "text-profit" : "text-loss",
+          )}
+        >
+          {connected ? "Live" : "Offline"}
         </span>
+        {connected && up && (
+          <>
+            <span className="h-3 w-px bg-white/15" />
+            <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+              {up}
+            </span>
+          </>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

@@ -12,7 +12,7 @@ import {
 import type { PortfolioStats } from "@arb/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { InfoButton } from "@/components/InfoButton";
-import { pct, usd } from "@/lib/format";
+import { pct, uptime as fmtUptime, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { StringKey } from "@/lib/i18n";
 
@@ -20,17 +20,6 @@ interface Props {
   portfolio: PortfolioStats | null;
   /** Epoch ms the server booted; used for the "live since · uptime" label. */
   startedAt?: number;
-}
-
-/** Compact uptime, e.g. "3d 4h", "5h 12m", or "8m". */
-function formatUptime(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
 }
 
 type Tone = "profit" | "loss" | "default";
@@ -58,7 +47,7 @@ export function StatCards({ portfolio, startedAt }: Props) {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
-  const uptime = startedAt ? formatUptime(now - startedAt) : null;
+  const uptime = startedAt ? fmtUptime(startedAt, now) : null;
   const liveSince = startedAt
     ? `Live since ${new Date(startedAt).toLocaleString()}`
     : undefined;

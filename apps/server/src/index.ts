@@ -133,6 +133,15 @@ io.on("connection", (socket: ArbSocket) => {
 
   socket.on("updateConfig", (patch) => applyConfigPatch(patch));
 
+  // Reset session metrics for everyone (single shared deployment). The engine
+  // re-emits fresh portfolio/latency/stats; `reset` tells clients to also clear
+  // their local opportunity/trade/triangular buffers for a true clean slate.
+  socket.on("resetSession", () => {
+    engine.reset();
+    broadcast("reset");
+    console.log("[engine] session metrics reset");
+  });
+
   // A question only concerns the asker; the reply goes back to that socket.
   socket.on("filoAsk", (payload) => {
     if (!payload || typeof payload.text !== "string") return;

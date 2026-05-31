@@ -176,6 +176,17 @@ const STRINGS = {
     "settings.filoDigest": "Frecuencia del resumen",
     "settings.off": "Desactivado",
     "settings.reset": "Restablecer valores",
+    "settings.session": "Sesión",
+    "settings.session.help":
+      "Pone a cero las métricas (P&L, trades, oportunidades, curva de equity) para observar desde cero. No afecta a los feeds en vivo.",
+    "settings.session.reset": "Reiniciar métricas de sesión",
+    "settings.session.confirm":
+      "¿Reiniciar las métricas de sesión? Esto pone a cero P&L, trades y oportunidades para todos los que estén viendo el panel.",
+    "cover.tagline":
+      "Detección y ejecución simulada de arbitraje de Bitcoin entre exchanges, en tiempo real.",
+    "cover.connecting": "Conectando a los exchanges…",
+    "cover.enter": "Continuar",
+    "cover.createdBy": "Creado por",
   },
   en: {
     "guide.title": "Filobot · BTC Arbitrage",
@@ -337,6 +348,17 @@ const STRINGS = {
     "settings.filoDigest": "Digest frequency",
     "settings.off": "Off",
     "settings.reset": "Reset to defaults",
+    "settings.session": "Session",
+    "settings.session.help":
+      "Zero the metrics (P&L, trades, opportunities, equity curve) to watch from scratch. Live market feeds are unaffected.",
+    "settings.session.reset": "Reset session metrics",
+    "settings.session.confirm":
+      "Reset session metrics? This zeroes P&L, trades and opportunities for everyone currently viewing the dashboard.",
+    "cover.tagline":
+      "Real-time cross-exchange Bitcoin arbitrage detection and simulated execution.",
+    "cover.connecting": "Connecting to exchanges…",
+    "cover.enter": "Continue",
+    "cover.createdBy": "Built by",
   },
 } as const;
 

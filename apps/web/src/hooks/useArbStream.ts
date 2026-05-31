@@ -57,6 +57,7 @@ export interface ArbStream extends ArbState {
   setDemo: (enabled: boolean) => void;
   askFilo: (text: string, lang: FiloLang) => void;
   updateConfig: (patch: EngineConfigPatch) => void;
+  resetSession: () => void;
 }
 
 export function useArbStream(): ArbStream {
@@ -71,6 +72,10 @@ export function useArbStream(): ArbStream {
 
   const updateConfig = useCallback((patch: EngineConfigPatch) => {
     socketRef.current?.emit("updateConfig", patch);
+  }, []);
+
+  const resetSession = useCallback(() => {
+    socketRef.current?.emit("resetSession");
   }, []);
 
   // Optimistically render the user's bubble, then send; Filo's reply arrives
@@ -160,6 +165,11 @@ export function useArbStream(): ArbStream {
       setState((p) => ({ ...p, filo: [...p.filo, msg].slice(-MAX_FILO_ITEMS) })),
     );
 
+    // Server reset session metrics — clear local feed buffers for a clean slate.
+    socket.on("reset", () =>
+      setState((p) => ({ ...p, opportunities: [], trades: [], triangular: [] })),
+    );
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
@@ -167,7 +177,7 @@ export function useArbStream(): ArbStream {
     };
   }, []);
 
-  return { ...state, setDemo, askFilo, updateConfig };
+  return { ...state, setDemo, askFilo, updateConfig, resetSession };
 }
 
 export type { ExchangeId };
