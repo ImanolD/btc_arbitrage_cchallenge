@@ -1,11 +1,11 @@
 import type {
+  EngineConfig,
   EquityPoint,
   ExchangeId,
   PortfolioStats,
   SimulatedTrade,
   WalletBalance,
 } from "@arb/shared";
-import { REBALANCE_THRESHOLD_BTC, feeModels } from "../config.js";
 
 const MAX_CURVE_POINTS = 500;
 
@@ -43,6 +43,8 @@ export class Portfolio {
     startUsd: number,
     startBtc: number,
     referencePrice: number,
+    /** Shared engine config (read by reference for live-tunable fees/threshold). */
+    private readonly config: EngineConfig,
   ) {
     for (const ex of exchanges) {
       this.wallets.set(ex, { exchange: ex, usd: startUsd, btc: startBtc });
@@ -111,12 +113,12 @@ export class Portfolio {
       if (wallet.exchange === "demo") continue;
       const baseline = this.baselineBtc.get(wallet.exchange) ?? 0;
       const drift = wallet.btc - baseline;
-      if (drift <= REBALANCE_THRESHOLD_BTC) continue;
+      if (drift <= this.config.rebalanceThresholdBtc) continue;
 
       const target = this.mostDepletedVenue(wallet.exchange);
       if (!target) continue;
 
-      const fee = feeModels[wallet.exchange].withdrawalFeeBtc;
+      const fee = this.config.fees[wallet.exchange].withdrawalFeeBtc;
       const amount = drift; // send the excess back toward baseline
       const usdValue = amount * referencePrice;
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, RotateCcw, X } from "lucide-react";
 import type { EngineConfig, EngineConfigPatch } from "@arb/shared";
-import { useLang } from "@/lib/i18n";
+import { useLang, type StringKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -18,9 +18,62 @@ const DEFAULTS: EngineConfigPatch = {
   minNetProfitUsd: 1,
   ev: { tauMs: 400, adverseBps: 5, minEvUsd: 0 },
   filo: { digestMs: 75_000, narrate: true },
+  maxNotionalUsd: 50_000,
+  maxSaneSpreadPct: 0.05,
+  maxQuoteAgeMs: 2_000,
+  rebalanceThresholdBtc: 0.5,
+  disabledExchanges: [],
 };
 
 const DIGEST_OPTIONS = [0, 30_000, 60_000, 120_000, 300_000];
+
+/**
+ * One-click strategy bundles. Each patch tunes the whole risk posture at once so
+ * a judge can flip between a cautious desk and a size-hungry one and watch the
+ * opportunity/fill behaviour change live. Fees and active venues are left as-is
+ * (they are venue-specific), but everything governing appetite is set here.
+ */
+const PRESETS: { key: StringKey; patch: EngineConfigPatch }[] = [
+  {
+    key: "settings.preset.conservative",
+    patch: {
+      decisionMode: "ev",
+      minNetProfitUsd: 5,
+      ev: { tauMs: 700, adverseBps: 12, minEvUsd: 3 },
+      maxNotionalUsd: 10_000,
+      maxSaneSpreadPct: 0.02,
+      maxQuoteAgeMs: 800,
+      rebalanceThresholdBtc: 1,
+    },
+  },
+  {
+    key: "settings.preset.balanced",
+    patch: DEFAULTS,
+  },
+  {
+    key: "settings.preset.aggressive",
+    patch: {
+      decisionMode: "ev",
+      minNetProfitUsd: 0,
+      ev: { tauMs: 250, adverseBps: 3, minEvUsd: 0 },
+      maxNotionalUsd: 150_000,
+      maxSaneSpreadPct: 0.1,
+      maxQuoteAgeMs: 4_000,
+      rebalanceThresholdBtc: 0.25,
+    },
+  },
+  {
+    key: "settings.preset.marketmaker",
+    patch: {
+      decisionMode: "spread",
+      minNetProfitUsd: 2,
+      maxNotionalUsd: 50_000,
+      maxSaneSpreadPct: 0.03,
+      maxQuoteAgeMs: 500,
+      rebalanceThresholdBtc: 0.5,
+    },
+  },
+];
 
 export function SettingsPanel({ open, config, onUpdate, onReset, onClose }: Props) {
   const { t } = useLang();
@@ -75,9 +128,33 @@ function Body({
 }) {
   const { t } = useLang();
   const evMode = config.decisionMode === "ev";
+  // Live control count = decisionMode + 4 global sliders + 3 EV + 2 Filo
+  // + size + 2 guards + rebalance + (taker fee + on/off) per venue.
+  const controlCount = 11 + config.exchanges.length * 2;
 
   return (
     <div className="space-y-6">
+      <p className="text-[12px] leading-relaxed text-muted-foreground">
+        <span className="font-semibold tabular-nums text-primary">{controlCount}</span>{" "}
+        {t("settings.controls")}
+      </p>
+
+      {/* Strategy presets: flip the whole risk posture in one click. */}
+      <Section title={t("settings.presets")} hint={t("settings.presets.help")}>
+        <div className="grid grid-cols-2 gap-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => onUpdate(p.patch)}
+              className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+            >
+              {t(p.key)}
+            </button>
+          ))}
+        </div>
+      </Section>
+
       {/* Decision strategy */}
       <Section title={t("settings.strategy")}>
         <div className="grid grid-cols-2 gap-2">
@@ -143,6 +220,92 @@ function Body({
           disabled={!evMode}
           onChange={(v) => onUpdate({ ev: { minEvUsd: v } })}
         />
+      </Section>
+
+      {/* Size & capital */}
+      <Section title={t("settings.size")}>
+        <Slider
+          label={t("settings.maxNotional")}
+          value={config.maxNotionalUsd}
+          min={1_000}
+          max={200_000}
+          step={1_000}
+          format={(v) => `$${v.toLocaleString("en-US")}`}
+          onChange={(v) => onUpdate({ maxNotionalUsd: v })}
+        />
+      </Section>
+
+      {/* Risk guards */}
+      <Section title={t("settings.guards")}>
+        <Slider
+          label={t("settings.maxSpread")}
+          value={Math.round(config.maxSaneSpreadPct * 1000) / 10}
+          min={0.5}
+          max={20}
+          step={0.5}
+          format={(v) => `${v}%`}
+          onChange={(v) => onUpdate({ maxSaneSpreadPct: v / 100 })}
+        />
+        <Slider
+          label={t("settings.maxAge")}
+          value={config.maxQuoteAgeMs}
+          min={200}
+          max={10_000}
+          step={100}
+          format={(v) => `${v} ms`}
+          onChange={(v) => onUpdate({ maxQuoteAgeMs: v })}
+        />
+      </Section>
+
+      {/* Inventory rebalancing */}
+      <Section title={t("settings.rebalance")} hint={t("settings.rebalance.help")}>
+        <Slider
+          label={t("settings.rebalanceThreshold")}
+          value={config.rebalanceThresholdBtc}
+          min={0.05}
+          max={5}
+          step={0.05}
+          format={(v) => `${v.toFixed(2)} BTC`}
+          onChange={(v) => onUpdate({ rebalanceThresholdBtc: v })}
+        />
+      </Section>
+
+      {/* Per-exchange taker fees */}
+      <Section title={t("settings.fees")} hint={t("settings.fees.help")}>
+        <div className="space-y-2">
+          {config.exchanges.map((ex) => (
+            <FeeRow
+              key={ex}
+              label={ex}
+              takerPct={(config.fees[ex]?.takerFee ?? 0) * 100}
+              onChange={(pct) => onUpdate({ fees: { [ex]: { takerFee: pct / 100 } } })}
+            />
+          ))}
+        </div>
+      </Section>
+
+      {/* Active venues (disabled ones keep streaming but leave arbitrage) */}
+      <Section title={t("settings.exchanges")} hint={t("settings.exchanges.help")}>
+        <div className="space-y-1">
+          {config.exchanges.map((ex) => {
+            const active = !config.disabledExchanges.includes(ex);
+            return (
+              <div key={ex} className="flex items-center justify-between py-0.5">
+                <span className="text-sm capitalize text-muted-foreground">{ex}</span>
+                <Toggle
+                  on={active}
+                  onChange={(on) =>
+                    onUpdate({
+                      disabledExchanges: on
+                        ? config.disabledExchanges.filter((e) => e !== ex)
+                        : [...config.disabledExchanges, ex],
+                    })
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
       </Section>
 
       {/* Filo cadence */}
@@ -297,6 +460,47 @@ function Slider({
         }}
         className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary disabled:cursor-not-allowed"
       />
+    </div>
+  );
+}
+
+function FeeRow({
+  label,
+  takerPct,
+  onChange,
+}: {
+  label: string;
+  takerPct: number;
+  onChange: (pct: number) => void;
+}) {
+  // Local mirror keeps typing smooth; re-sync when the echoed config moves.
+  const [local, setLocal] = useState(takerPct.toFixed(3));
+  useEffect(() => setLocal(takerPct.toFixed(3)), [takerPct]);
+
+  const commit = (raw: string) => {
+    const v = Number(raw);
+    if (Number.isFinite(v)) onChange(Math.min(Math.max(v, 0), 5));
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-sm capitalize text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          min={0}
+          max={5}
+          step={0.001}
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className="w-20 rounded-md border border-border bg-muted/40 px-2 py-1 text-right text-sm tabular-nums text-foreground focus:border-primary/60 focus:outline-none"
+        />
+        <span className="text-[12px] text-muted-foreground">%</span>
+      </div>
     </div>
   );
 }

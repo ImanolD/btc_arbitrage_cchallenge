@@ -19,6 +19,7 @@ import {
   TRIANGULAR_PAIRS,
   TRIANGULAR_SYMBOLS,
   engineConfig,
+  feeModels,
 } from "./config.js";
 import { BaseConnector, createConnector, createConnectors } from "./exchanges/index.js";
 import { ArbitrageEngine } from "./engine/arbitrageEngine.js";
@@ -207,9 +208,54 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
     filo.applyConfig();
   }
 
+  // Order size (notional per leg).
+  if (typeof patch.maxNotionalUsd === "number" && Number.isFinite(patch.maxNotionalUsd)) {
+    engineConfig.maxNotionalUsd = clamp(patch.maxNotionalUsd, 100, 10_000_000);
+  }
+  // Risk guards.
+  if (typeof patch.maxSaneSpreadPct === "number" && Number.isFinite(patch.maxSaneSpreadPct)) {
+    engineConfig.maxSaneSpreadPct = clamp(patch.maxSaneSpreadPct, 0.0005, 1);
+  }
+  if (typeof patch.maxQuoteAgeMs === "number" && Number.isFinite(patch.maxQuoteAgeMs)) {
+    engineConfig.maxQuoteAgeMs = clamp(patch.maxQuoteAgeMs, 100, 60_000);
+  }
+  // Rebalancing threshold (inventory drift in BTC before an on-chain transfer).
+  if (
+    typeof patch.rebalanceThresholdBtc === "number" &&
+    Number.isFinite(patch.rebalanceThresholdBtc)
+  ) {
+    engineConfig.rebalanceThresholdBtc = clamp(patch.rebalanceThresholdBtc, 0.01, 1_000);
+  }
+  // Per-exchange fee overrides. Mutating feeModels[x] updates the echoed config
+  // too (same object reference) and is picked up live on the next tick/trade.
+  if (patch.fees && typeof patch.fees === "object") {
+    for (const [ex, override] of Object.entries(patch.fees)) {
+      const model = feeModels[ex as ExchangeId];
+      if (!model || !override) continue;
+      if (typeof override.takerFee === "number" && Number.isFinite(override.takerFee)) {
+        model.takerFee = clamp(override.takerFee, 0, 0.05);
+      }
+      if (
+        typeof override.withdrawalFeeBtc === "number" &&
+        Number.isFinite(override.withdrawalFeeBtc)
+      ) {
+        model.withdrawalFeeBtc = clamp(override.withdrawalFeeBtc, 0, 1);
+      }
+    }
+  }
+  // Active/inactive venues: keep only valid, currently-configured exchanges.
+  if (Array.isArray(patch.disabledExchanges)) {
+    const valid = new Set(engineConfig.exchanges);
+    engineConfig.disabledExchanges = [
+      ...new Set(patch.disabledExchanges.filter((e) => valid.has(e))),
+    ];
+  }
+
   broadcast("config", engineConfig);
   console.log(
     `[config] mode=${engineConfig.decisionMode} minNet=${engineConfig.minNetProfitUsd} ` +
+      `size=${engineConfig.maxNotionalUsd} guards(spread=${engineConfig.maxSaneSpreadPct},age=${engineConfig.maxQuoteAgeMs}) ` +
+      `rebal=${engineConfig.rebalanceThresholdBtc} disabled=[${engineConfig.disabledExchanges.join(",")}] ` +
       `ev(tau=${engineConfig.ev.tauMs},adv=${engineConfig.ev.adverseBps},min=${engineConfig.ev.minEvUsd}) ` +
       `filo(digest=${engineConfig.filo.digestMs},narrate=${engineConfig.filo.narrate})`,
   );

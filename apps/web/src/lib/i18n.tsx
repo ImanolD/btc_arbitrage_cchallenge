@@ -182,6 +182,29 @@ const STRINGS = {
     "settings.session.reset": "Reiniciar métricas de sesión",
     "settings.session.confirm":
       "¿Reiniciar las métricas de sesión? Esto pone a cero P&L, trades y oportunidades para todos los que estén viendo el panel.",
+    "settings.presets": "Presets de estrategia",
+    "settings.presets.help":
+      "Aplica de un clic un conjunto de parámetros y observa cómo cambia el comportamiento del bot en vivo.",
+    "settings.preset.conservative": "Conservador",
+    "settings.preset.balanced": "Balanceado",
+    "settings.preset.aggressive": "Agresivo",
+    "settings.preset.marketmaker": "Mesa / MM",
+    "settings.size": "Tamaño y capital",
+    "settings.maxNotional": "Tamaño de orden (nominal máx.)",
+    "settings.guards": "Riesgo y guardas",
+    "settings.maxSpread": "Spread máx. (anti-glitch)",
+    "settings.maxAge": "Antigüedad máx. de quote",
+    "settings.rebalance": "Rebalanceo de inventario",
+    "settings.rebalanceThreshold": "Umbral de drift",
+    "settings.rebalance.help":
+      "Drift de inventario (en BTC) que un venue puede acumular antes de disparar una transferencia on-chain (que cobra el withdrawal fee amortizado).",
+    "settings.fees": "Fees por exchange (taker)",
+    "settings.fees.help":
+      "Ajusta el taker fee de cada venue y observa cómo cambia qué cruces son rentables. Los fees más altos matan más oportunidades.",
+    "settings.exchanges": "Exchanges activos",
+    "settings.exchanges.help":
+      "Apaga un venue para excluirlo del arbitraje (su feed sigue en vivo en el panel de mercado).",
+    "settings.controls": "controles en vivo",
     "cover.tagline":
       "Detección y ejecución simulada de arbitraje de Bitcoin entre exchanges, en tiempo real.",
     "cover.connecting": "Conectando a los exchanges…",
@@ -354,6 +377,29 @@ const STRINGS = {
     "settings.session.reset": "Reset session metrics",
     "settings.session.confirm":
       "Reset session metrics? This zeroes P&L, trades and opportunities for everyone currently viewing the dashboard.",
+    "settings.presets": "Strategy presets",
+    "settings.presets.help":
+      "Apply a bundle of parameters in one click and watch the bot's behaviour change live.",
+    "settings.preset.conservative": "Conservative",
+    "settings.preset.balanced": "Balanced",
+    "settings.preset.aggressive": "Aggressive",
+    "settings.preset.marketmaker": "Desk / MM",
+    "settings.size": "Size & capital",
+    "settings.maxNotional": "Order size (max notional)",
+    "settings.guards": "Risk & guards",
+    "settings.maxSpread": "Max spread (glitch guard)",
+    "settings.maxAge": "Max quote age",
+    "settings.rebalance": "Inventory rebalancing",
+    "settings.rebalanceThreshold": "Drift threshold",
+    "settings.rebalance.help":
+      "Inventory drift (in BTC) a venue may accumulate before triggering an on-chain transfer (which charges the amortized withdrawal fee).",
+    "settings.fees": "Fees per exchange (taker)",
+    "settings.fees.help":
+      "Tune each venue's taker fee and watch which crosses become profitable. Higher fees kill more opportunities.",
+    "settings.exchanges": "Active exchanges",
+    "settings.exchanges.help":
+      "Turn a venue off to exclude it from arbitrage (its feed stays live in the market panel).",
+    "settings.controls": "live controls",
     "cover.tagline":
       "Real-time cross-exchange Bitcoin arbitrage detection and simulated execution.",
     "cover.connecting": "Connecting to exchanges…",

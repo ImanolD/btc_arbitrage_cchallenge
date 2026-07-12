@@ -84,6 +84,7 @@ export class ArbitrageEngine extends EventEmitter {
       startingBalances.usdPerExchange,
       startingBalances.btcPerExchange,
       this.referencePrice,
+      this.config,
     );
     if (this.referencePrice > 0) portfolio.ensureBaseline(this.referencePrice);
     return portfolio;
@@ -199,6 +200,12 @@ export class ArbitrageEngine extends EventEmitter {
     sellBook: TopOfBook,
     trigger: TopOfBook,
   ): Candidate | null {
+    // Live venue toggle: a disabled exchange keeps streaming its book (still
+    // shown in the market panel) but is excluded from comparison/execution.
+    const disabled = this.config.disabledExchanges;
+    if (disabled.length > 0 && (disabled.includes(buyBook.exchange) || disabled.includes(sellBook.exchange))) {
+      return null;
+    }
     // Only compare venues quoting the same asset. A BTC/USD book and a BTC/USDT
     // book differ by the USDT peg, so crossing them would surface a phantom
     // "arbitrage" that is really FX risk, not a free spread.

@@ -77,6 +77,11 @@ export const engineConfig: EngineConfig = {
     digestMs: num("FILO_DIGEST_MS", 75_000),
     narrate: (process.env.FILO_NARRATE ?? "true") !== "false",
   },
+  // NOTE: `fees` and `rebalanceThresholdBtc` are wired below after those consts
+  // are declared; assigned by reference so live edits propagate everywhere.
+  rebalanceThresholdBtc: 0,
+  fees: {} as Record<ExchangeId, FeeModel>,
+  disabledExchanges: [],
 };
 
 function str(name: string): string | undefined {
@@ -141,3 +146,11 @@ export const feeModels: Record<ExchangeId, FeeModel> = {
   bitfinex: { takerFee: 0.002, withdrawalFeeBtc: 0.0004 },
   demo: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
 };
+
+// Wire the live-tunable pieces into the shared engineConfig by reference, so a
+// single source of truth (feeModels, the threshold) drives both the runtime
+// engine and the config echoed to the dashboard. Mutating feeModels[x].takerFee
+// updates the value everywhere it is read (engine, simulator, portfolio) and in
+// the echoed config, with no re-plumbing.
+engineConfig.fees = feeModels;
+engineConfig.rebalanceThresholdBtc = REBALANCE_THRESHOLD_BTC;

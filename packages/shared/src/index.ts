@@ -248,6 +248,15 @@ export interface EngineConfig {
   decisionMode: DecisionMode;
   /** Filo chat copilot behaviour. */
   filo: FiloConfig;
+  /** Inventory drift (BTC) a venue may accumulate before an on-chain rebalance. */
+  rebalanceThresholdBtc: number;
+  /** Per-exchange trading-cost schedule (taker + withdrawal), live-tunable. */
+  fees: Record<ExchangeId, FeeModel>;
+  /**
+   * Venues currently EXCLUDED from cross-exchange comparison (their feeds keep
+   * streaming, but no opportunity/trade will involve them). Empty = all active.
+   */
+  disabledExchanges: ExchangeId[];
 }
 
 /**
@@ -259,6 +268,18 @@ export interface EngineConfigPatch {
   minNetProfitUsd?: number;
   ev?: Partial<EvConfig>;
   filo?: Partial<FiloConfig>;
+  /** Max notional (USD) sized per simulated leg. */
+  maxNotionalUsd?: number;
+  /** Data-glitch guard: reject crosses wider than this fraction (e.g. 0.05). */
+  maxSaneSpreadPct?: number;
+  /** Stale-feed guard: reject quotes older than this (ms). */
+  maxQuoteAgeMs?: number;
+  /** Inventory drift (BTC) that triggers an on-chain rebalance. */
+  rebalanceThresholdBtc?: number;
+  /** Partial per-exchange fee overrides (taker fraction / withdrawal BTC). */
+  fees?: Partial<Record<ExchangeId, Partial<FeeModel>>>;
+  /** Full replacement list of venues excluded from comparison. */
+  disabledExchanges?: ExchangeId[];
 }
 
 /** Parameters of the transparent expected-value / survival-probability model. */
