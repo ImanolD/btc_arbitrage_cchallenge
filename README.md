@@ -68,7 +68,7 @@ La **portada** funciona como *gate* de carga real: espera a que el stream de Soc
 - **Dirigido por eventos, no por polling.** El motor reevalúa en cada *tick* del order book y solo reverifica los pares de venues afectados por esa actualización — O(N) por actualización, no O(N²).
 - **La ganancia neta se calcula recorriendo el book.** Una operación que se ve bien en el *top-of-book* a menudo se vuelve negativa dos niveles más abajo. Nunca asumimos que el mejor precio llena todo el tamaño.
 - **Modelo de inventario, no transferencias por operación.** Las mesas de arbitraje reales pre-posicionan capital en ambos venues — la liquidación on-chain de BTC (~10–60 min) mataría toda oportunidad. Los balances se desvían con el tiempo (un venue acumula BTC, el otro USD), y mostramos esa desviación en lugar de esconderla tras transferencias instantáneas ficticias.
-- **Costo de retiro amortizado, no por operación.** El *withdrawal fee* es un costo de **rebalanceo**: solo se cobra cuando la desviación de inventario supera un umbral y obliga a una transferencia on-chain. Lo amortizamos entre las operaciones y lo mostramos como "costo de rebalanceo / operación" — restarlo en cada trade descartaría oportunidades reales.
+- **Costo de retiro amortizado, no por operación.** El *withdrawal fee* es un costo de **rebalanceo**: solo se cobra cuando el inventario cruza la banda de una política **(s,S)** y obliga a una transferencia on-chain. Lo amortizamos entre las operaciones y lo mostramos como "costo de rebalanceo / operación" — restarlo en cada trade descartaría oportunidades reales. Ver el panel de inventario más abajo.
 - **Decisión por valor esperado (EV), no por umbral.** No disparamos cuando "spread > X": estimamos la **probabilidad de que el cruce sobreviva** nuestra ventana de latencia (heurística transparente sobre decaimiento por latencia, magnitud del *edge* e *imbalance* del book) y ejecutamos solo si `EV = P(supervivencia) × neto − (1−P) × costo_adverso > 0`. El dashboard muestra P(supervivencia) y EV en vivo, y el modo de decisión (EV vs. umbral de spread) es **conmutable en vivo** desde el panel de Ajustes — ver abajo.
 - **Priorización por valor esperado.** En cada tick se ejecutan las oportunidades accionables de mayor a menor EV (no "la primera que aparece"), asignando el capital a la mejor primero; el dashboard resalta la "mejor ejecutable ahora".
 - **Compuerta de riesgo antes de ejecutar.** Guarda de feed obsoleto, guarda de spread inverosímil (*glitch* de datos) y umbral mínimo de ganancia neta median entre "detectado" y "ejecutado".
@@ -207,6 +207,20 @@ El **inyector de escenarios adversos** (claramente etiquetado, banner rojo + sec
 En el **blotter** cada fila muestra el estado de cada pata (B✓ / S✕ / ◑) y un badge `RE-HEDGED` / `UNWOUND` / `PARTIAL` con el residual y el costo de aplanar; **Filo narra** cada vuelta a plano. Bajo un gap fuerte los netos salen en rojo — y así debe ser: el mercado se movió en contra y el sistema lo refleja con honestidad. Como todo lo sintético (igual que el modo demo), es **imposible confundirlo con datos reales**, arranca inactivo y no requiere credenciales.
 
 Implementación: `apps/server/src/engine/executionSimulator.ts` (patas, rejects, haircut, gap, resolución) y `engine/portfolio.ts` (aplica los deltas). El estado del escenario es parte de `EngineConfig.scenario` y viaja por el mismo `updateConfig` validado en el servidor.
+
+## Inventario y rebalanceo (s,S)
+
+> **Novedad de la fase final.** El rebalanceo dejó de ser un umbral escondido y pasó a ser una **política de inventario visible y configurable**.
+
+Cada venue tiene un **objetivo** de BTC (nivel *order-up-to*, su baseline inicial) y una **banda muerta** `[objetivo − banda, objetivo + banda]`, con `banda = rebalanceThresholdBtc` (ajustable en vivo). Mientras el BTC se mantenga dentro de la banda no se hace nada; al cruzar el **techo**, el venue envía el excedente de vuelta al **objetivo** (no al límite). Esa distancia entre el disparador (s) y el nivel de retorno (S) es lo que **evita el thrashing**. El excedente va al venue más agotado, se liquida la pata USD internamente y solo se cobra el **withdrawal fee** on-chain — amortizado entre trades, no por operación.
+
+El **panel de inventario** ("Inventory & rebalancing — (s,S)") lo hace tangible:
+
+- **Barra objetivo vs. actual por venue** — BTC actual (verde dentro de banda, rojo fuera) contra el objetivo y la banda muerta pintada.
+- **Capacidad restante** — cuántos trades más aguanta cada venue antes de quedarse sin el balance que lo limita.
+- **Timeline de rebalanceos** — transferencias recientes (hora, ruta, monto ₿, costo) + KPIs de costo amortizado por trade y banda activa.
+
+Implementación: `engine/portfolio.ts` (`rebalanceIfNeeded` como (s,S) + `inventory()`); los datos viajan en `PortfolioStats.inventory` y `PortfolioStats.rebalancing`.
 
 ## Operación en vivo: portada, uptime y reinicio de sesión
 

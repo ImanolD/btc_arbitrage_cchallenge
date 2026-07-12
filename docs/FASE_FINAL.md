@@ -170,13 +170,57 @@ contra y el sistema lo refleja con honestidad en vez de esconderlo.
 
 ---
 
+## ✅ Enviado — Gestión de wallets tipo (s,S) + panel de inventario
+
+El comité preguntó, textual: *"¿El sistema mantiene un balance operativo entre
+exchanges de forma inteligente y automatizada?"*. El rebalanceo pasó de un umbral
+único escondido a una **política de inventario (s,S) visible y configurable**, tal
+como la describí en la ronda 2.
+
+### La política (s,S) con banda muerta
+
+Cada venue tiene un **objetivo** de BTC (el nivel *order-up-to* = su baseline
+inicial) y una **banda muerta** `[objetivo − banda, objetivo + banda]`, donde
+`banda = rebalanceThresholdBtc` (ajustable en vivo desde Ajustes → Rebalanceo).
+
+- Mientras el BTC se mantenga **dentro de la banda**, no se hace nada.
+- Al cruzar el **techo**, el venue envía el excedente de vuelta al **objetivo**
+  (no al límite). Esa distancia entre el disparador (s) y el nivel de retorno (S)
+  es justo lo que **evita el thrashing** — un wiggle chico no vuelve a disparar.
+- El excedente va al venue **más agotado** (que está por debajo de su piso), así
+  que una sola transferencia arregla los dos lados. La pata USD se liquida
+  internamente y solo se cobra el **withdrawal fee** on-chain — amortizado entre
+  trades, como en producción.
+
+### Panel de inventario (nuevo)
+
+Un panel dedicado (barra derecha) hace **visible** todo lo anterior:
+
+- **Barra objetivo vs. actual por venue:** el BTC actual (verde dentro de la
+  banda, rojo fuera) contra el tick del objetivo y la banda muerta pintada, con
+  etiqueta *in band / above ceiling / below floor*.
+- **Capacidad restante:** cuántos trades más (al tamaño máximo actual) aguanta
+  cada venue antes de quedarse sin el balance que limita (USD para comprar o BTC
+  para vender).
+- **Timeline de rebalanceos:** las transferencias recientes (hora, ruta
+  origen→destino, monto en BTC y costo), más KPIs de transferencias totales,
+  costo amortizado por trade y la banda activa.
+
+### Dónde verlo / cómo funciona
+
+- Panel **"Inventory & rebalancing — (s,S)"** en el dashboard.
+- `PortfolioStats` ahora incluye `inventory[]` (objetivo/piso/techo/capacidad por
+  venue) y `rebalancing.recentEvents[]` + `bandBtc`.
+- Lógica en `apps/server/src/engine/portfolio.ts` (`rebalanceIfNeeded` como (s,S),
+  `inventory()` para la vista). La banda viaja por el mismo `updateConfig`
+  validado en el servidor, así que es **estado de servidor**, live-tunable.
+
+---
+
 ## 🚧 En curso durante esta fase
 
 Cerrar el loop continúa, en el mismo espíritu de "hacerlo tocable, no narrarlo":
 
-- **Gestión de wallets tipo (s,S)** — rebalanceo con banda muerta y targets por
-  venue, más un **panel de inventario** (objetivo vs. actual, capacidad restante,
-  timeline de rebalanceos).
 - **Reporte de sesión exportable** — config usada, trades, P&L, rebalanceos y
   distribución de spreads en CSV/JSON.
 - **`docs/DECISIONS.md`** — bitácora de decisiones técnicas (por qué EV sobre
