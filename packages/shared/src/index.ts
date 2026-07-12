@@ -137,6 +137,38 @@ export interface LatencySample {
   processingMs: number;
 }
 
+/** Fill state of a single order leg (buy or sell). */
+export type OrderLegState = "filled" | "partial" | "rejected";
+
+/**
+ * How a directional residual (one leg filled more than the other) was brought
+ * back to flat:
+ * - `none`: legs matched, no residual.
+ * - `rehedged`: completed the missing leg (traded the residual on the intended
+ *   counter-venue) — captures the arb intent at a worse/uncertain price.
+ * - `unwound`: reversed the filled leg (traded the residual back on the venue we
+ *   just hit) — gives up the arb to return to flat.
+ * The engine picks whichever is cheaper, always prioritizing flat.
+ */
+export type ResidualResolution = "none" | "rehedged" | "unwound";
+
+/** One order leg of an execution, with its own fill state (state machine). */
+export interface TradeLeg {
+  side: OrderSide;
+  exchange: ExchangeId;
+  requestedSize: number;
+  filledSize: number;
+  avgPrice: number;
+  state: OrderLegState;
+}
+
+/** Exact balance change applied to one wallet by an execution. */
+export interface WalletDelta {
+  exchange: ExchangeId;
+  usd: number;
+  btc: number;
+}
+
 /** Result of a (partially) filled simulated arbitrage execution. */
 export interface SimulatedTrade {
   id: string;
@@ -144,7 +176,7 @@ export interface SimulatedTrade {
   symbol: string;
   buyExchange: ExchangeId;
   sellExchange: ExchangeId;
-  /** Size actually filled (base asset). May be < requested under low liquidity. */
+  /** Matched size (base asset) — the portion cleanly arbitraged (both legs). */
   filledSize: number;
   requestedSize: number;
   avgBuyPrice: number;
@@ -153,6 +185,21 @@ export interface SimulatedTrade {
   netProfit: number;
   partial: boolean;
   executedAt: number;
+  /** Buy/sell legs modeled as an independent state machine each. */
+  buyLeg: TradeLeg;
+  sellLeg: TradeLeg;
+  /** Signed BTC residual (buyFilled − sellFilled) before resolution. */
+  residualBtc: number;
+  /** How the residual was brought back to flat (if any). */
+  resolution: ResidualResolution;
+  /** P&L of the residual resolution (quote currency) — usually ≤ 0. */
+  resolutionPnlUsd: number;
+  /** Directional state after resolution (`flat` unless nothing could be done). */
+  finalState: "flat" | "exposed";
+  /** Exact per-wallet balance deltas (both legs + resolution). */
+  walletDeltas: WalletDelta[];
+  /** Which adverse conditions hit this execution (e.g. "reject:sell","gap"). */
+  scenarioTags: string[];
 }
 
 /** Simulated wallet balances on a single exchange. */
@@ -220,6 +267,22 @@ export interface PercentileStats {
  */
 export type DecisionMode = "ev" | "spread";
 
+/**
+ * Adverse-scenario injector ("chaos mode") — a clearly-labeled way to stress the
+ * execution path so a judge can *trigger* a failure and watch the bot recover to
+ * flat, rather than just read that it can. All zero = inactive (normal
+ * execution). Applied only inside the execution simulator; never touches
+ * detection latency or the live feeds. Like demo mode, it is honest by design.
+ */
+export interface ScenarioConfig {
+  /** Probability [0..1] that a given order leg is rejected outright (0 fill). */
+  rejectProb: number;
+  /** Fraction [0..1] to shrink available order-book depth (liquidity crunch). */
+  liquidityHaircutPct: number;
+  /** Adverse price move (bps) applied mid-execution (buy up / sell down). */
+  priceGapBps: number;
+}
+
 /** Tunable Filo (chat copilot) behaviour, echoed to the dashboard. */
 export interface FiloConfig {
   /** Period of Filo's unprompted session digest (ms); 0 disables the digest. */
@@ -257,6 +320,8 @@ export interface EngineConfig {
    * streaming, but no opportunity/trade will involve them). Empty = all active.
    */
   disabledExchanges: ExchangeId[];
+  /** Adverse-scenario injector state (all zero = inactive). */
+  scenario: ScenarioConfig;
 }
 
 /**
@@ -280,6 +345,8 @@ export interface EngineConfigPatch {
   fees?: Partial<Record<ExchangeId, Partial<FeeModel>>>;
   /** Full replacement list of venues excluded from comparison. */
   disabledExchanges?: ExchangeId[];
+  /** Adverse-scenario injector overrides (partial). */
+  scenario?: Partial<ScenarioConfig>;
 }
 
 /** Parameters of the transparent expected-value / survival-probability model. */

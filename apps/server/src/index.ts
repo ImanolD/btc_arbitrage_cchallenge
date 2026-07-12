@@ -250,12 +250,28 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
       ...new Set(patch.disabledExchanges.filter((e) => valid.has(e))),
     ];
   }
+  // Adverse-scenario injector (clearly-labeled chaos mode). All fields clamp to
+  // safe ranges; all zero = inactive.
+  if (patch.scenario && typeof patch.scenario === "object") {
+    const { rejectProb, liquidityHaircutPct, priceGapBps } = patch.scenario;
+    if (typeof rejectProb === "number" && Number.isFinite(rejectProb)) {
+      engineConfig.scenario.rejectProb = clamp(rejectProb, 0, 1);
+    }
+    if (typeof liquidityHaircutPct === "number" && Number.isFinite(liquidityHaircutPct)) {
+      engineConfig.scenario.liquidityHaircutPct = clamp(liquidityHaircutPct, 0, 0.99);
+    }
+    if (typeof priceGapBps === "number" && Number.isFinite(priceGapBps)) {
+      engineConfig.scenario.priceGapBps = clamp(priceGapBps, 0, 1_000);
+    }
+    filo.noteScenario(engineConfig.scenario);
+  }
 
   broadcast("config", engineConfig);
   console.log(
     `[config] mode=${engineConfig.decisionMode} minNet=${engineConfig.minNetProfitUsd} ` +
       `size=${engineConfig.maxNotionalUsd} guards(spread=${engineConfig.maxSaneSpreadPct},age=${engineConfig.maxQuoteAgeMs}) ` +
       `rebal=${engineConfig.rebalanceThresholdBtc} disabled=[${engineConfig.disabledExchanges.join(",")}] ` +
+      `scenario(rej=${engineConfig.scenario.rejectProb},liq=${engineConfig.scenario.liquidityHaircutPct},gap=${engineConfig.scenario.priceGapBps}) ` +
       `ev(tau=${engineConfig.ev.tauMs},adv=${engineConfig.ev.adverseBps},min=${engineConfig.ev.minEvUsd}) ` +
       `filo(digest=${engineConfig.filo.digestMs},narrate=${engineConfig.filo.narrate})`,
   );

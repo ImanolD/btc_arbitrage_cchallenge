@@ -19,6 +19,7 @@ const THROTTLE = {
   exec: 6_000,
   best: 14_000,
   skip: 22_000,
+  residual: 9_000,
 } as const;
 
 /** Cap on the in-memory message backlog replayed to new clients. */
@@ -46,6 +47,8 @@ export class FiloAgent extends EventEmitter {
   private lastSkip: Opportunity | null = null;
   private readonly recentTrades: SimulatedTrade[] = [];
   private pendingTrades: SimulatedTrade[] = [];
+  /** Last-announced adverse-scenario active state (for on↔off narration). */
+  private scenarioActive = false;
 
   constructor(private readonly config: EngineConfig) {
     super();
@@ -151,6 +154,27 @@ export class FiloAgent extends EventEmitter {
       const pnl = batch.reduce((s, t) => s + t.netProfit, 0);
       this.push("update", T.exec(batch.length, pnl, batch[batch.length - 1]), pnl >= 0 ? "good" : "bad");
     }
+    // Residual resolution (a leg rejected / partial-filled, then we returned to
+    // flat) is the whole point of the scenario injector — narrate it separately.
+    if (trade.resolution !== "none" && this.gate("residual", THROTTLE.residual)) {
+      this.push("update", T.residual(trade), "warn");
+    }
+  }
+
+  /**
+   * The adverse-scenario injector state changed (server calls this from the
+   * config patch). Narrate on/off so the chat makes the honesty explicit.
+   */
+  noteScenario(scenario: EngineConfig["scenario"]): void {
+    const active =
+      scenario.rejectProb > 0 ||
+      scenario.liquidityHaircutPct > 0 ||
+      scenario.priceGapBps > 0;
+    // Always announce the on↔off transition; throttle mid-drag adjustments so a
+    // slider doesn't flood the chat.
+    if (active === this.scenarioActive && !this.gate("scenario", 5_000)) return;
+    this.scenarioActive = active;
+    this.push("update", T.scenario(scenario, active), active ? "warn" : "info");
   }
 
   private emitDigest(): void {
@@ -412,6 +436,51 @@ const T = {
           es: `Ejecuté ${n} trades · P&L neto ${sUsd(pnl)} (último ${route}).`,
           en: `Executed ${n} trades · net P&L ${sUsd(pnl)} (last ${route}).`,
         };
+  },
+  residual: (t: SimulatedTrade): Bilingual => {
+    const route = `${cap(t.buyExchange)}→${cap(t.sellExchange)}`;
+    const rejected =
+      t.buyLeg.state === "rejected"
+        ? cap(t.buyExchange)
+        : t.sellLeg.state === "rejected"
+          ? cap(t.sellExchange)
+          : null;
+    const cause = rejected ? `rechazó la pata de ${rejected}` : "solo llenó una pata";
+    const causeEn = rejected ? `${rejected}'s leg was rejected` : "only one leg filled";
+    const action =
+      t.resolution === "rehedged"
+        ? { es: "completé la pata faltante (re-hedge)", en: "completed the missing leg (re-hedge)" }
+        : { es: "deshice la pata llena (unwind)", en: "unwound the filled leg" };
+    return {
+      es: `${route}: ${cause} → residual ${t.residualBtc.toFixed(4)} BTC. ${action.es} y volví a plano · costo ${sUsd(t.resolutionPnlUsd)}. 🐾`,
+      en: `${route}: ${causeEn} → residual ${t.residualBtc.toFixed(4)} BTC. I ${action.en} back to flat · cost ${sUsd(t.resolutionPnlUsd)}. 🐾`,
+    };
+  },
+  scenario: (sc: EngineConfig["scenario"], active: boolean): Bilingual => {
+    if (!active) {
+      return {
+        es: "Escenario adverso desactivado. Ejecución normal de nuevo. 🐾",
+        en: "Adverse scenario off. Back to normal execution. 🐾",
+      };
+    }
+    const parts: string[] = [];
+    const partsEn: string[] = [];
+    if (sc.rejectProb > 0) {
+      parts.push(`rechazo de pata ${pct(sc.rejectProb)}`);
+      partsEn.push(`leg reject ${pct(sc.rejectProb)}`);
+    }
+    if (sc.liquidityHaircutPct > 0) {
+      parts.push(`liquidez −${pct(sc.liquidityHaircutPct)}`);
+      partsEn.push(`liquidity −${pct(sc.liquidityHaircutPct)}`);
+    }
+    if (sc.priceGapBps > 0) {
+      parts.push(`gap ${Math.round(sc.priceGapBps)} bps`);
+      partsEn.push(`gap ${Math.round(sc.priceGapBps)} bps`);
+    }
+    return {
+      es: `Modo escenario adverso ACTIVO (${parts.join(" · ")}). Es simulado y etiquetado; mira cómo vuelvo a plano. 🐾`,
+      en: `Adverse scenario mode ON (${partsEn.join(" · ")}). It's simulated and labeled; watch me return to flat. 🐾`,
+    };
   },
   digest: (
     s: StatsSnapshot | null,

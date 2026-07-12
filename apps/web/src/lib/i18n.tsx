@@ -205,6 +205,15 @@ const STRINGS = {
     "settings.exchanges.help":
       "Apaga un venue para excluirlo del arbitraje (su feed sigue en vivo en el panel de mercado).",
     "settings.controls": "controles en vivo",
+    "settings.scenario": "Escenarios adversos (simulado)",
+    "settings.scenario.help":
+      "Dispara fallos en vivo y observa al bot manejar el residual y volver a plano. Es simulado y claramente etiquetado, igual que el modo demo.",
+    "settings.scenario.reject": "Prob. de rechazo de pata",
+    "settings.scenario.liquidity": "Recorte de liquidez",
+    "settings.scenario.gap": "Gap de precio (en ejecución)",
+    "settings.scenario.clear": "Limpiar escenario",
+    "banner.scenario":
+      "Modo escenario adverso ACTIVO — se inyectan fallos de orden / liquidez / gaps para probar la robustez. Simulado, no es mercado real.",
     "cover.tagline":
       "Detección y ejecución simulada de arbitraje de Bitcoin entre exchanges, en tiempo real.",
     "cover.connecting": "Conectando a los exchanges…",
@@ -400,6 +409,15 @@ const STRINGS = {
     "settings.exchanges.help":
       "Turn a venue off to exclude it from arbitrage (its feed stays live in the market panel).",
     "settings.controls": "live controls",
+    "settings.scenario": "Adverse scenarios (simulated)",
+    "settings.scenario.help":
+      "Trigger failures live and watch the bot handle the residual and return to flat. Simulated and clearly labeled, just like demo mode.",
+    "settings.scenario.reject": "Leg reject probability",
+    "settings.scenario.liquidity": "Liquidity crunch",
+    "settings.scenario.gap": "Price gap (mid-execution)",
+    "settings.scenario.clear": "Clear scenario",
+    "banner.scenario":
+      "Adverse-scenario mode ACTIVE — order-reject / liquidity / gap failures are being injected to test robustness. Simulated, not real market data.",
     "cover.tagline":
       "Real-time cross-exchange Bitcoin arbitrage detection and simulated execution.",
     "cover.connecting": "Connecting to exchanges…",

@@ -82,6 +82,8 @@ export const engineConfig: EngineConfig = {
   rebalanceThresholdBtc: 0,
   fees: {} as Record<ExchangeId, FeeModel>,
   disabledExchanges: [],
+  // Adverse-scenario injector starts off (normal execution).
+  scenario: { rejectProb: 0, liquidityHaircutPct: 0, priceGapBps: 0 },
 };
 
 function str(name: string): string | undefined {

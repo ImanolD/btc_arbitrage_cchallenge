@@ -128,9 +128,9 @@ function Body({
 }) {
   const { t } = useLang();
   const evMode = config.decisionMode === "ev";
-  // Live control count = decisionMode + 4 global sliders + 3 EV + 2 Filo
-  // + size + 2 guards + rebalance + (taker fee + on/off) per venue.
-  const controlCount = 11 + config.exchanges.length * 2;
+  // Live control count = decisionMode + minNet + 3 EV + 2 Filo + size
+  // + 2 guards + rebalance + 3 adverse-scenario + (taker fee + on/off) per venue.
+  const controlCount = 14 + config.exchanges.length * 2;
 
   return (
     <div className="space-y-6">
@@ -338,6 +338,57 @@ function Body({
           </div>
         </div>
       </Section>
+
+      {/* Adverse-scenario injector ("chaos mode") — clearly labeled, like demo. */}
+      <div className="rounded-lg border border-warn/40 bg-warn/5 p-3">
+        <div className="mb-2 flex items-baseline gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-warn">
+            {t("settings.scenario")}
+          </h3>
+        </div>
+        <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground">
+          {t("settings.scenario.help")}
+        </p>
+        <div className="space-y-3">
+          <Slider
+            label={t("settings.scenario.reject")}
+            value={Math.round(config.scenario.rejectProb * 100)}
+            min={0}
+            max={100}
+            step={5}
+            format={(v) => `${v}%`}
+            onChange={(v) => onUpdate({ scenario: { rejectProb: v / 100 } })}
+          />
+          <Slider
+            label={t("settings.scenario.liquidity")}
+            value={Math.round(config.scenario.liquidityHaircutPct * 100)}
+            min={0}
+            max={90}
+            step={5}
+            format={(v) => `−${v}%`}
+            onChange={(v) => onUpdate({ scenario: { liquidityHaircutPct: v / 100 } })}
+          />
+          <Slider
+            label={t("settings.scenario.gap")}
+            value={Math.round(config.scenario.priceGapBps)}
+            min={0}
+            max={200}
+            step={5}
+            format={(v) => `${v} bps`}
+            onChange={(v) => onUpdate({ scenario: { priceGapBps: v } })}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            onUpdate({ scenario: { rejectProb: 0, liquidityHaircutPct: 0, priceGapBps: 0 } })
+          }
+          className="mt-3 flex items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          {t("settings.scenario.clear")}
+        </button>
+      </div>
 
       <button
         type="button"

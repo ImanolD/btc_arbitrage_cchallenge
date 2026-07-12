@@ -79,16 +79,16 @@ export class Portfolio {
   }
 
   applyTrade(trade: SimulatedTrade, referencePrice: number): void {
-    const buyWallet = this.wallets.get(trade.buyExchange);
-    const sellWallet = this.wallets.get(trade.sellExchange);
-    if (!buyWallet || !sellWallet) return;
-
-    const buyFee = trade.fees / 2; // split is informational only
-    buyWallet.usd -= trade.avgBuyPrice * trade.filledSize + buyFee;
-    buyWallet.btc += trade.filledSize;
-
-    sellWallet.btc -= trade.filledSize;
-    sellWallet.usd += trade.avgSellPrice * trade.filledSize - (trade.fees - buyFee);
+    // The simulator computes exact per-wallet balance deltas across BOTH legs
+    // and any residual re-hedge/unwind, so we just apply them. This keeps the
+    // accounting correct even when a leg is rejected and the position is
+    // brought back to flat on a different venue than intended.
+    for (const d of trade.walletDeltas) {
+      const wallet = this.wallets.get(d.exchange);
+      if (!wallet) continue;
+      wallet.usd += d.usd;
+      wallet.btc += d.btc;
+    }
 
     this.realizedPnl += trade.netProfit;
     this.totalTrades += 1;

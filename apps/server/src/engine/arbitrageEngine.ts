@@ -66,7 +66,7 @@ export class ArbitrageEngine extends EventEmitter {
     this.referencePrice = 0;
     this.risk = new RiskManager(config);
     this.portfolio = this.freshPortfolio();
-    this.simulator = new ExecutionSimulator(this.portfolio);
+    this.simulator = new ExecutionSimulator(this.portfolio, config);
   }
 
   /**
@@ -98,7 +98,7 @@ export class ArbitrageEngine extends EventEmitter {
    */
   reset(): void {
     this.portfolio = this.freshPortfolio();
-    this.simulator = new ExecutionSimulator(this.portfolio);
+    this.simulator = new ExecutionSimulator(this.portfolio, this.config);
     this.stats = new StatsAggregator();
     this.latency = new LatencyTracker();
     this.lastTradeAt.clear();
@@ -173,7 +173,10 @@ export class ArbitrageEngine extends EventEmitter {
     for (const c of actionable) {
       if (!this.cooldownReady(c.buyBook.exchange, c.sellBook.exchange, now)) continue;
       const trade = this.simulator.execute(c.opp, c.buyBook, c.sellBook);
-      if (trade && trade.filledSize > 0) {
+      // A trade is booked whenever any position was taken — including the case
+      // where the matched size is 0 but a rejected leg left a residual that we
+      // then unwound back to flat (the scenario-injector story).
+      if (trade) {
         this.portfolio.applyTrade(trade, this.referencePriceOr(trade.avgBuyPrice));
         this.lastTradeAt.set(pairKey(c.buyBook.exchange, c.sellBook.exchange), now);
         this.emit("trade", trade);

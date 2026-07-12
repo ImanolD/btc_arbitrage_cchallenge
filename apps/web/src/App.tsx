@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { EngineConfig } from "@arb/shared";
 import { useArbStream } from "@/hooks/useArbStream";
 import { StatusBar } from "@/components/StatusBar";
 import { StatCards } from "@/components/StatCards";
@@ -9,6 +10,7 @@ import { EquityChart } from "@/components/EquityChart";
 import { LatencyPanel } from "@/components/LatencyPanel";
 import { TriangularPanel } from "@/components/TriangularPanel";
 import { DemoBanner } from "@/components/DemoBanner";
+import { AdverseScenarioBanner } from "@/components/AdverseScenarioBanner";
 import { GuideOverlay } from "@/components/GuideOverlay";
 import { StatsPanel } from "@/components/StatsPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
@@ -18,6 +20,12 @@ import { useLang } from "@/lib/i18n";
 import { startTour } from "@/lib/tour";
 
 const GUIDE_SEEN_KEY = "arb_guide_seen";
+
+/** True when any adverse-scenario injector knob is dialed above zero. */
+function scenarioActive(config: EngineConfig | null): boolean {
+  const s = config?.scenario;
+  return !!s && (s.rejectProb > 0 || s.liquidityHaircutPct > 0 || s.priceGapBps > 0);
+}
 
 export default function App() {
   const state = useArbStream();
@@ -83,6 +91,7 @@ export default function App() {
         onOpenSettings={() => setSettingsOpen(true)}
       />
       {state.config?.demoMode && <DemoBanner />}
+      {scenarioActive(state.config) && <AdverseScenarioBanner />}
 
       <main className="flex flex-1 flex-col gap-3 p-3">
         <div id="tour-stats">
