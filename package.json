@@ -20,7 +20,8 @@
     "build:server": "bun --filter @arb/server build",
     "build:web": "bun --filter @arb/web build",
     "start": "tsx apps/server/src/index.ts",
-    "typecheck": "bun --filter '*' typecheck"
+    "typecheck": "bun --filter '*' typecheck",
+    "test": "bun test apps/server/tests"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

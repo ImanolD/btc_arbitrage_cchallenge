@@ -247,13 +247,69 @@ puede exportar todo lo que está en pantalla en dos formatos, desde
 
 ---
 
-## 🚧 En curso durante esta fase
+## ✅ Enviado — Bitácora de decisiones + tests en CI
 
-Cerrar el loop continúa, en el mismo espíritu de "hacerlo tocable, no narrarlo":
+Para que el criterio detrás del código quede explícito y verificable, cerramos la
+fase con dos piezas:
 
-- **`docs/DECISIONS.md`** — bitácora de decisiones técnicas (por qué EV sobre
-  umbral, modelo de inventario, fee amortizado, Node vs Bun, IA fuera del hot
-  path) + suite de tests en CI.
+- **[`docs/DECISIONS.md`](DECISIONS.md)** — bitácora de decisiones técnicas en
+  formato ADR corto (*contexto → decisión → alternativa descartada →
+  consecuencia*): por qué EV sobre umbral, el modelo de inventario, el fee de
+  retiro amortizado y la política (s,S), la ejecución en dos patas + vuelta a
+  plano, la ejecución simulada / clean-room, IA fuera del hot path, el contrato de
+  tipos compartido y Node vs Bun.
+- **Suite de tests unitarios** sobre la lógica pura (sin red), en
+  `apps/server/tests/`:
+  - `profit.test.ts` — el *depth-walk* neto-de-todo (fills, corte por fee, parada
+    al cruzar un nivel no rentable, tope por nominal).
+  - `executionSimulator.test.ts` — máquina de dos patas (ejecución normal a plano,
+    pata rechazada → residual → vuelta a plano con BTC conservado, doble rechazo →
+    sin trade, haircut de liquidez).
+  - `portfolio.test.ts` — (s,S) (sin transferencia dentro de la banda, envío al
+    objetivo al cruzar el techo, PnL/win-rate, capacidad acotada por USD/BTC).
+
+Corren con `bun run test` (15 tests) y `bun run typecheck` (los 3 paquetes), y
+ambos se ejecutan en **CI** (`.github/workflows/ci.yml`) en cada push/PR. Los
+tests viven **fuera de `src/`** para no contaminar el `tsc` de producción con
+`bun:test`.
+
+---
+
+## ✅ Enviado — Pronóstico de deriva de inventario (capa avanzada)
+
+Cerrando con una capa de las que mencioné en la ronda 2 (forecasting para
+rebalanceo): el panel de inventario ahora **anticipa** el próximo rebalanceo en
+vez de solo reaccionar.
+
+- El portafolio mantiene una **EWMA de la deriva de BTC por trade** en cada venue
+  (`portfolio.ts` → `updateDrift`), aprendida **solo del flujo de trades** (patas
+  + resolución del residual), **antes** de las transferencias correctivas — así la
+  velocidad de deriva refleja el trading natural, no las correcciones.
+- Con esa velocidad, `projectBreach` extrapola de forma lineal **cuántos trades
+  faltan** para cruzar el borde más cercano de la banda muerta (techo si acumula,
+  piso si se vacía). Cada fila del panel muestra `↑ ≈ N trades al techo` /
+  `↓ ≈ N trades al piso`, o **estable** si la deriva es despreciable, la muestra
+  es muy chica o el horizonte es lejano.
+- Es **honesto por diseño**: una heurística transparente etiquetada como
+  pronóstico, no una promesa; **no** actúa por su cuenta (no fuerza transferencias
+  proactivas), solo informa. Cubierta por tests (`portfolio.test.ts`: proyección
+  tras warm-up y `null` antes).
+
+**Nota de i18n.** Todo el panel de inventario (KPIs, estados *in band / above
+ceiling / below floor*, timeline y el nuevo pronóstico) quedó **internacionalizado
+ES/EN**, cerrando el último texto que estaba hardcodeado en inglés.
+
+### Fuera de alcance (deliberado)
+
+Del backlog P2, dos ítems se descartaron **a propósito**, fieles a los principios:
+
+- **Maker/taker + fee tiers.** La ejecución del arb es *taker* (cruzamos el
+  spread); un control de *maker fee* sería un knob **sin efecto** — y un control
+  que no hace nada rompe la regla de honestidad. El *taker fee* ya es editable por
+  venue.
+- **Más venues.** Sumar connectors WS nuevos es dependiente de red y arriesga el
+  **deploy estable** que lleva semanas corriendo. No vale el riesgo en la recta
+  final.
 
 ---
 

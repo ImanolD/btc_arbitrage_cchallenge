@@ -227,6 +227,18 @@ export interface VenueInventory {
   ceilingBtc: number;
   /** Estimated max-size trades this venue can still support (binding leg). */
   capacityTrades: number;
+  /**
+   * Signed EWMA of BTC change per trade (the venue's inventory drift velocity).
+   * Positive = accumulating BTC (drifting toward the ceiling), negative =
+   * bleeding BTC (toward the floor). A transparent forecast, not a promise.
+   */
+  driftPerTradeBtc: number;
+  /**
+   * Forecast: trades until the current drift carries this venue across its
+   * nearest deadband edge (triggering a rebalance). Null when drift is
+   * negligible, data is too thin, or the horizon is far off — i.e. "stable".
+   */
+  projectedTradesToBreach: number | null;
 }
 
 /** A single on-chain inventory-rebalancing transfer (for the timeline). */

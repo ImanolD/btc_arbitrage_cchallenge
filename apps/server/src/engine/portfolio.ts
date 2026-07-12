@@ -12,6 +12,14 @@ import type {
 const MAX_CURVE_POINTS = 500;
 /** Cap on the rebalance-event timeline surfaced to the wallets panel. */
 const MAX_REBALANCE_EVENTS = 25;
+/** EWMA weight for the per-venue inventory-drift forecast (higher = snappier). */
+const DRIFT_ALPHA = 0.25;
+/** Trades observed before the drift forecast is trusted enough to project. */
+const MIN_DRIFT_SAMPLES = 5;
+/** Below this |BTC/trade| the venue is treated as "stable" (no meaningful drift). */
+const DRIFT_EPS = 1e-5;
+/** Projections past this horizon are reported as "stable" (null) to avoid noise. */
+const MAX_PROJECTION_TRADES = 9_999;
 
 /**
  * Tracks simulated wallet balances per exchange and derives P&L.
@@ -43,6 +51,10 @@ export class Portfolio {
   private readonly equityCurve: EquityPoint[] = [];
   /** Recent on-chain transfers (newest first) for the wallets timeline. */
   private readonly recentRebalances: RebalanceEvent[] = [];
+  /** Per-venue EWMA of BTC change per trade — the inventory-drift velocity. */
+  private readonly driftEwmaBtc = new Map<ExchangeId, number>();
+  /** Trades observed per venue (drives the forecast warm-up). */
+  private driftSamples = 0;
 
   constructor(
     exchanges: ExchangeId[],
@@ -100,8 +112,35 @@ export class Portfolio {
     this.totalTrades += 1;
     if (trade.netProfit > 0) this.winningTrades += 1;
 
+    // Learn each venue's inventory drift from the TRADE flow only (the legs +
+    // residual resolution), before any corrective rebalance transfer runs — so
+    // the forecast reflects natural trading drift, not the transfers that fix it.
+    this.updateDrift(trade);
+
     this.rebalanceIfNeeded(referencePrice);
     this.pushEquity(referencePrice);
+  }
+
+  /**
+   * Fold this trade's per-venue BTC delta into an EWMA drift estimate. Every
+   * non-demo venue is updated each trade (0 when it didn't participate), so the
+   * EWMA is a true "BTC per trade" velocity — the basis for the time-to-breach
+   * forecast in the wallets panel.
+   */
+  private updateDrift(trade: SimulatedTrade): void {
+    const byVenue = new Map<ExchangeId, number>();
+    for (const d of trade.walletDeltas) {
+      byVenue.set(d.exchange, (byVenue.get(d.exchange) ?? 0) + d.btc);
+    }
+    this.driftSamples += 1;
+    for (const ex of this.wallets.keys()) {
+      if (ex === "demo") continue;
+      const delta = byVenue.get(ex) ?? 0;
+      const prev = this.driftEwmaBtc.get(ex);
+      // Seed with the first observation, then blend.
+      const next = prev === undefined ? delta : DRIFT_ALPHA * delta + (1 - DRIFT_ALPHA) * prev;
+      this.driftEwmaBtc.set(ex, next);
+    }
   }
 
   /**
@@ -204,18 +243,43 @@ export class Portfolio {
       .filter((w) => w.exchange !== "demo")
       .map((w) => {
         const target = this.baselineBtc.get(w.exchange) ?? 0;
+        const ceiling = target + band;
+        const floor = Math.max(0, target - band);
         const buyable = tradeSizeBtc > 0 ? w.usd / (referencePrice * tradeSizeBtc) : 0;
         const sellable = tradeSizeBtc > 0 ? w.btc / tradeSizeBtc : 0;
+        const drift = this.driftEwmaBtc.get(w.exchange) ?? 0;
         return {
           exchange: w.exchange,
           usd: round(w.usd),
           btc: round8(w.btc),
           targetBtc: round8(target),
-          floorBtc: round8(Math.max(0, target - band)),
-          ceilingBtc: round8(target + band),
+          floorBtc: round8(floor),
+          ceilingBtc: round8(ceiling),
           capacityTrades: Math.max(0, Math.floor(Math.min(buyable, sellable))),
+          driftPerTradeBtc: round8(drift),
+          projectedTradesToBreach: this.projectBreach(w.btc, floor, ceiling, drift),
         };
       });
+  }
+
+  /**
+   * Trades until `drift` carries `btc` across the nearest deadband edge. Returns
+   * null when drift is negligible, the warm-up isn't met, the venue is already
+   * outside the band (a rebalance is imminent), or the horizon is beyond
+   * MAX_PROJECTION_TRADES ("stable"). A transparent linear extrapolation.
+   */
+  private projectBreach(
+    btc: number,
+    floor: number,
+    ceiling: number,
+    drift: number,
+  ): number | null {
+    if (this.driftSamples < MIN_DRIFT_SAMPLES) return null;
+    if (Math.abs(drift) < DRIFT_EPS) return null;
+    const edge = drift > 0 ? ceiling : floor;
+    const trades = (edge - btc) / drift;
+    if (trades <= 0 || trades > MAX_PROJECTION_TRADES) return null;
+    return Math.ceil(trades);
   }
 
   stats(referencePrice: number): PortfolioStats {

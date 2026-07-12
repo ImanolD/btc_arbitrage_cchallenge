@@ -219,6 +219,7 @@ El **panel de inventario** ("Inventory & rebalancing — (s,S)") lo hace tangibl
 
 - **Barra objetivo vs. actual por venue** — BTC actual (verde dentro de banda, rojo fuera) contra el objetivo y la banda muerta pintada.
 - **Capacidad restante** — cuántos trades más aguanta cada venue antes de quedarse sin el balance que lo limita.
+- **Pronóstico de deriva** — una EWMA de la deriva de inventario por venue (BTC/trade) proyecta *"≈ N trades hasta el techo/piso"*, para anticipar el próximo rebalanceo antes de que ocurra. Es una extrapolación transparente (heurística, no promesa): si la deriva es despreciable, dice *estable*.
 - **Timeline de rebalanceos** — transferencias recientes (hora, ruta, monto ₿, costo) + KPIs de costo amortizado por trade y banda activa.
 
 Implementación: `engine/portfolio.ts` (`rebalanceIfNeeded` como (s,S) + `inventory()`); los datos viajan en `PortfolioStats.inventory` y `PortfolioStats.rebalancing`.
@@ -266,6 +267,19 @@ Por separado:
 bun run dev:server
 bun run dev:web
 ```
+
+### Calidad: typecheck + tests + CI
+
+```bash
+bun run typecheck   # tsc en shared + server + web
+bun run test        # suite de tests del motor (apps/server/tests)
+```
+
+La lógica pura del motor está cubierta por tests unitarios (sin red): el
+*depth-walk* neto-de-todo (`profit`), la máquina de ejecución en dos patas con
+vuelta a plano (`executionSimulator`) y el rebalanceo (s,S) del `portfolio`. Ambos
+comandos corren en **CI** (`.github/workflows/ci.yml`) en cada push/PR. El
+**porqué** de cada decisión de diseño está en [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Configuración
 
