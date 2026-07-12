@@ -72,6 +72,7 @@ La **portada** funciona como *gate* de carga real: espera a que el stream de Soc
 - **Decisión por valor esperado (EV), no por umbral.** No disparamos cuando "spread > X": estimamos la **probabilidad de que el cruce sobreviva** nuestra ventana de latencia (heurística transparente sobre decaimiento por latencia, magnitud del *edge* e *imbalance* del book) y ejecutamos solo si `EV = P(supervivencia) × neto − (1−P) × costo_adverso > 0`. El dashboard muestra P(supervivencia) y EV en vivo, y el modo de decisión (EV vs. umbral de spread) es **conmutable en vivo** desde el panel de Ajustes — ver abajo.
 - **Priorización por valor esperado.** En cada tick se ejecutan las oportunidades accionables de mayor a menor EV (no "la primera que aparece"), asignando el capital a la mejor primero; el dashboard resalta la "mejor ejecutable ahora".
 - **Compuerta de riesgo antes de ejecutar.** Guarda de feed obsoleto, guarda de spread inverosímil (*glitch* de datos) y umbral mínimo de ganancia neta median entre "detectado" y "ejecutado".
+- **Dos patas, y siempre volver a plano.** Cada ejecución son dos órdenes con su propio estado (`filled`/`partial`/`rejected`); si una falla queda un residual direccional que el motor deshace (re-hedge o unwind, el más barato) para no quedar con exposición abierta. Se puede *disparar* el fallo desde el inyector de escenarios — ver abajo.
 
 ## Arquitectura
 
@@ -185,6 +186,27 @@ El corazón del panel — **decidir por valor esperado, no por umbral de spread*
 EV y P(supervivencia) se calculan y muestran **en ambos modos**, así que el efecto del cambio es inmediato y visible en el feed: al pasar a `spread` empiezan a dispararse cruces que EV rechazaba por frágiles. Es la diferencia "bot promedio vs. mesa real" hecha demostración en vivo, no solo descrita.
 
 > **Por qué importa (criterio #1 del jurado).** El comité subrayó que *"el grado de profundidad con el que parametricen las distintas opciones"* sería uno de los factores que más diferencian a los proyectos, y preguntó explícitamente por **fees, tamaños de orden y exchanges activos**. Los tres — más los guards, el rebalanceo y la estrategia — se ajustan aquí, en vivo, desde la UI.
+
+## Robustez: máquina de estados + inyector de escenarios
+
+> **Novedad de la fase final.** No te contamos cómo manejamos un fallo: **lo disparas tú y lo miras**. Detalle en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
+
+Cada ejecución se modela como **dos patas independientes** (compra y venta), cada una con su propio estado — `filled` · `partial` · `rejected`. Cuando las patas no coinciden (una se rechaza, o la liquidez/gap solo llena un lado) queda un **residual direccional** (Δ en BTC), y el motor **vuelve a plano** eligiendo la opción más barata por precio:
+
+- **Re-hedge (completar):** ejecuta la pata faltante en el venue contraparte — captura la intención del arb a un precio peor.
+- **Unwind (deshacer):** revierte la pata que sí llenó — renuncia al arb con tal de quedar plano.
+
+La prioridad siempre es **no quedarse con exposición direccional abierta**. La contabilidad es exacta: el simulador calcula los deltas por wallet de ambas patas más la resolución, el BTC se conserva a plano, y el P&L realizado es la suma de los deltas en USD.
+
+El **inyector de escenarios adversos** (claramente etiquetado, banner rojo + sección en Ajustes) deja que el juez fuerce esos fallos en vivo:
+
+- **Rechazo de pata** — cada pata puede rechazarse (fill 0).
+- **Recorte de liquidez** — encoge la profundidad del book (crunch).
+- **Gap de precio en ejecución** — el mercado se mueve en contra a mitad de la operación.
+
+En el **blotter** cada fila muestra el estado de cada pata (B✓ / S✕ / ◑) y un badge `RE-HEDGED` / `UNWOUND` / `PARTIAL` con el residual y el costo de aplanar; **Filo narra** cada vuelta a plano. Bajo un gap fuerte los netos salen en rojo — y así debe ser: el mercado se movió en contra y el sistema lo refleja con honestidad. Como todo lo sintético (igual que el modo demo), es **imposible confundirlo con datos reales**, arranca inactivo y no requiere credenciales.
+
+Implementación: `apps/server/src/engine/executionSimulator.ts` (patas, rejects, haircut, gap, resolución) y `engine/portfolio.ts` (aplica los deltas). El estado del escenario es parte de `EngineConfig.scenario` y viaja por el mismo `updateConfig` validado en el servidor.
 
 ## Operación en vivo: portada, uptime y reinicio de sesión
 

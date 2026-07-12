@@ -93,16 +93,87 @@ instante — es estado de servidor, no local.
 
 ---
 
+## ✅ Enviado — Robustez demostrable: máquina de estados + inyector de escenarios
+
+El comité preguntó, textual: *"¿Cómo se comporta tu bot cuando una orden falla,
+cuando la liquidez es insuficiente o cuando el mercado se mueve bruscamente
+durante la ejecución?"*. En vez de responderlo por escrito (otra vez), ahora se
+puede **disparar el fallo y ver al bot manejarlo**.
+
+### Máquina de estados por pata + vuelta a plano
+
+Cada ejecución se modela como **dos patas independientes** (compra y venta),
+cada una con su propio estado: `filled` · `partial` · `rejected`. Cuando las
+patas no coinciden — una se rechaza, o la liquidez/gap solo llena un lado —
+queda un **residual direccional** (Δ en BTC), y el motor **vuelve a plano** de
+una de dos formas, eligiendo la más barata por precio:
+
+- **Re-hedge (completar):** ejecuta la pata faltante en el venue contraparte —
+  captura la intención del arb a un precio peor/incierto.
+- **Unwind (deshacer):** revierte la pata que sí llenó en el venue que acabamos
+  de tocar — renuncia al arb con tal de quedar plano.
+
+En ambos casos la prioridad es **no quedarse con exposición direccional abierta**,
+exactamente como lo describí en las rondas anteriores. La contabilidad es exacta:
+el simulador calcula los **deltas por wallet** de las dos patas + la resolución,
+el BTC se conserva a plano, y el P&L realizado es la suma de los deltas en USD.
+
+### Inyector de escenarios adversos ("chaos mode")
+
+Un panel claramente etiquetado (banner rojo permanente + sección propia en
+Ajustes) donde el juez **dispara en vivo**, con sliders:
+
+- **Prob. de rechazo de pata** — cada pata puede rechazarse (fill 0).
+- **Recorte de liquidez** — encoge la profundidad del book (crunch).
+- **Gap de precio (en ejecución)** — el mercado se mueve en contra a mitad de
+  ejecución (compra más arriba, venta más abajo).
+
+Y **observa** al bot: fill parcial → residual → decisión re-hedge/unwind → vuelta
+a plano, con **Filo narrando cada paso** (*"rechazó la pata de OKX → residual
+−0.78 BTC → completé la pata faltante y volví a plano · costo −$220"*). Bajo un
+gap fuerte los trades salen en **rojo** — y así debe ser: el mercado se movió en
+contra y el sistema lo refleja con honestidad en vez de esconderlo.
+
+### Dónde verlo
+
+- **Blotter:** cada fila muestra chips de estado por pata (B✓ / S✕ / ◑) y un
+  badge `RE-HEDGED` / `UNWOUND` / `PARTIAL` con el residual y el costo de
+  aplanar; el P&L neto se pinta en rojo cuando es negativo.
+- **Ajustes → "Escenarios adversos (simulado)":** los tres sliders + "Limpiar
+  escenario".
+- **Banner rojo** arriba cuando cualquier knob está activo — igual de honesto
+  que el banner del modo demo.
+
+### Cómo funciona por dentro
+
+- `SimulatedTrade` (`packages/shared/src/index.ts`) ahora carga `buyLeg`/`sellLeg`
+  (con estado), `residualBtc` (con signo), `resolution` (`none`/`rehedged`/
+  `unwound`), `resolutionPnlUsd`, `finalState` y los `walletDeltas` exactos.
+- Toda la lógica vive en `apps/server/src/engine/executionSimulator.ts` (patas,
+  rejects, haircut de liquidez, gap, resolución del residual) y en
+  `portfolio.ts` (aplica los deltas por wallet).
+- El estado del escenario es parte de `EngineConfig.scenario` y viaja por el
+  mismo `updateConfig` (validado y acotado en el servidor), así que también es
+  **estado de servidor**: se propaga a todas las pestañas al instante.
+- Igual que el resto: **fuera del hot path** y **clean-room** (arranca inactivo,
+  no requiere secrets).
+
+### Prueba de 30 segundos (para el jurado)
+
+1. Activa **Demo** (para que fluyan ejecuciones) y abre **Ajustes →
+   Escenarios adversos**.
+2. Sube **Prob. de rechazo de pata** a ~50%: verás en el blotter patas en `✕`,
+   residuales, y badges `RE-HEDGED`; Filo narra cada vuelta a plano.
+3. Sube el **gap de precio**: los netos empiezan a salir en rojo (el mercado se
+   movió en contra durante la ejecución).
+4. **Limpiar escenario** → todo vuelve a ejecución normal.
+
+---
+
 ## 🚧 En curso durante esta fase
 
-Cerrar el loop no termina en la parametrización. El resto de la fase construye,
-en el mismo espíritu de "hacerlo tocable, no narrarlo":
+Cerrar el loop continúa, en el mismo espíritu de "hacerlo tocable, no narrarlo":
 
-- **Robustez demostrable** — máquina de estados por pata
-  (`NEW → PARTIAL → FILLED/REJECTED`), manejo de residual (Δ) y **vuelta a plano**
-  (re-hedge vs unwind), y un **inyector de escenarios** claramente etiquetado
-  para que el juez *dispare* un reject, un crunch de liquidez o un gap de precio y
-  vea al bot manejarlo, con Filo narrando cada paso.
 - **Gestión de wallets tipo (s,S)** — rebalanceo con banda muerta y targets por
   venue, más un **panel de inventario** (objetivo vs. actual, capacidad restante,
   timeline de rebalanceos).
