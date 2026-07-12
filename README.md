@@ -2,7 +2,7 @@
 
 **Filobot** hace detección de **arbitraje de Bitcoin entre exchanges** en tiempo real y **ejecución simulada**, construido para el reto de arbitraje de BTC. El sistema transmite order books en vivo de múltiples exchanges vía WebSocket, detecta divergencias de precio en el instante en que ocurren, calcula la rentabilidad **neta de comisiones y slippage por profundidad**, aplica controles de riesgo y simula la ejecución con llenados parciales y seguimiento de balances por wallet — todo visualizado en una terminal de trading en vivo.
 
-> El código y los comentarios están en inglés (estándar de ingeniería); la documentación está en español por tratarse de una competencia en México. Ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para el detalle técnico y [`docs/judging_criteria.md`](docs/judging_criteria.md) para el mapeo criterio-por-criterio + FAQ.
+> El código y los comentarios están en inglés (estándar de ingeniería); la documentación está en español por tratarse de una competencia en México. Ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para el detalle técnico, [`docs/judging_criteria.md`](docs/judging_criteria.md) para el mapeo criterio-por-criterio + FAQ, y [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md) para las **novedades de la fase final**.
 
 ## Vistazo
 
@@ -159,16 +159,32 @@ Actívalo en vivo desde el dashboard (botón **Demo**), o arranca con él encend
 DEMO_MODE=true bun run dev:server
 ```
 
-## Panel de estrategia en vivo: EV vs spread
+## Centro de parametrización en vivo
 
-La tesis central del proyecto — **decidir por valor esperado, no por umbral de spread** — no se queda en el papel: es **interactiva**. Desde el panel de **Ajustes** (engranaje en la barra de estado, que además muestra el modo activo) puedes conmutar en vivo entre:
+> **Novedad de la fase final.** Todo el comportamiento del bot es **ajustable en vivo** desde el panel de **Ajustes** (engranaje en la barra de estado). Nada requiere reinicio: cada cambio viaja por Socket.IO, se **valida y acota** en el servidor, y se refleja al instante en el feed, el P&L y en **todos los clientes conectados**. El detalle de esta fase está en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
+
+El panel está **agrupado por sección** y encabezado por un contador de **cuántos controles están vivos** (`N controles en vivo`), que crece con el número de venues:
+
+- **Presets de estrategia** — un clic aplica un *bundle* completo y cambia la postura de riesgo al instante: **Conservador** (EV alto, size chico, guards estrictos), **Balanceado** (defaults), **Agresivo** (size grande, guards laxos) y **Mesa / MM** (modo spread, inventario ajustado). Ideal para que un juez "juegue" y vea el sistema reaccionar.
+- **Estrategia** — modo de decisión **EV ↔ spread** (ver abajo) y `ganancia neta mínima`.
+- **Valor esperado (EV)** — `τ` de latencia, costo de selección adversa y EV mínimo.
+- **Tamaño y capital** — `nominal máximo por pata` (tamaño de orden).
+- **Riesgo y guardas** — `spread máximo` (guarda anti-glitch de datos) y `antigüedad máxima de quote` (guarda de feed obsoleto).
+- **Rebalanceo de inventario** — `umbral de drift` (BTC) que dispara una transferencia on-chain y cobra el withdrawal fee amortizado.
+- **Fees por exchange** — editor del **taker fee de cada venue**. Súbelo y verás cómo mueren cruces que antes eran rentables; bájalo a 0 y verás cuántos aparecen. El fee es la variable que decide qué es arbitraje y qué no.
+- **Exchanges activos** — *toggle* por venue para **incluirlo o excluirlo del arbitraje** en vivo. Su feed **sigue transmitiéndose** en el panel de mercado; simplemente deja de participar en la comparación y la ejecución.
+- **Filo** — cadencia del resumen y silenciar/activar narraciones.
+
+### La tesis, en vivo: EV vs spread
+
+El corazón del panel — **decidir por valor esperado, no por umbral de spread** — no se queda en el papel:
 
 - **Valor esperado (EV):** ejecuta solo si `EV = P(supervivencia) × neto − (1−P) × costo_adverso` supera el mínimo. Anticipatorio: descarta cruces frágiles aunque su neto sea positivo.
 - **Spread neto (umbral):** modo ingenuo — ejecuta con cualquier spread neto positivo que pase la compuerta de riesgo.
 
 EV y P(supervivencia) se calculan y muestran **en ambos modos**, así que el efecto del cambio es inmediato y visible en el feed: al pasar a `spread` empiezan a dispararse cruces que EV rechazaba por frágiles. Es la diferencia "bot promedio vs. mesa real" hecha demostración en vivo, no solo descrita.
 
-El mismo panel afina los parámetros del modelo (`τ` de latencia, costo adverso, EV mínimo, ganancia neta mínima) y la cadencia de Filo (frecuencia del resumen y silenciar/activar narraciones). Todos los cambios viajan por Socket.IO, se **validan y acotan** en el servidor y se reflejan al instante en todos los clientes conectados.
+> **Por qué importa (criterio #1 del jurado).** El comité subrayó que *"el grado de profundidad con el que parametricen las distintas opciones"* sería uno de los factores que más diferencian a los proyectos, y preguntó explícitamente por **fees, tamaños de orden y exchanges activos**. Los tres — más los guards, el rebalanceo y la estrategia — se ajustan aquí, en vivo, desde la UI.
 
 ## Operación en vivo: portada, uptime y reinicio de sesión
 
@@ -220,14 +236,14 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `EXCHANGES` | `binance,kraken,okx,bybit,kucoin,gate,bitstamp,bitfinex` | Connectors de exchange habilitados |
+| `EXCHANGES` | `binance,kraken,okx,bybit,kucoin,gate,bitstamp,bitfinex` | Connectors de exchange habilitados. Cada venue se puede excluir/incluir del arbitraje **en vivo** desde Ajustes (su feed sigue transmitiendo) |
 | `TRIANGULAR_EXCHANGES` | `binance,okx,bybit,kucoin,gate` | Venues con arbitraje triangular |
 | `SYMBOL` | `BTCUSDT` | Par a monitorear |
-| `MAX_NOTIONAL_USD` | `50000` | Tope nominal por pata simulada |
-| `MIN_NET_PROFIT_USD` | `1` | Ganancia neta mínima para ejecutar |
-| `MAX_SANE_SPREAD_PCT` | `0.05` | Rechaza spreads más anchos como datos erróneos |
-| `MAX_QUOTE_AGE_MS` | `2000` | Guarda de feed obsoleto |
-| `REBALANCE_THRESHOLD_BTC` | `0.5` | Desviación de inventario que dispara un rebalanceo (cobra withdrawal fee amortizado) |
+| `MAX_NOTIONAL_USD` | `50000` | Tope nominal por pata simulada. También ajustable en vivo |
+| `MIN_NET_PROFIT_USD` | `1` | Ganancia neta mínima para ejecutar. También ajustable en vivo |
+| `MAX_SANE_SPREAD_PCT` | `0.05` | Rechaza spreads más anchos como datos erróneos. También ajustable en vivo |
+| `MAX_QUOTE_AGE_MS` | `2000` | Guarda de feed obsoleto. También ajustable en vivo |
+| `REBALANCE_THRESHOLD_BTC` | `0.5` | Desviación de inventario que dispara un rebalanceo (cobra withdrawal fee amortizado). También ajustable en vivo |
 | `EV_TAU_MS` | `400` | Constante de decaimiento por latencia del modelo de supervivencia |
 | `EV_ADVERSE_BPS` | `5` | Costo de selección adversa (bps) si el edge colapsa |
 | `EV_MIN_USD` | `0` | Valor esperado mínimo para ejecutar |
