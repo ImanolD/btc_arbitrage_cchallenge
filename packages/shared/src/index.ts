@@ -209,6 +209,35 @@ export interface WalletBalance {
   btc: number;
 }
 
+/**
+ * Per-venue inventory state for the (s,S) rebalancing policy: a target
+ * (order-up-to level), a deadband [floor, ceiling] around it, and current
+ * balances. No action is taken while BTC stays inside the band; crossing a
+ * limit triggers a transfer back to target — the classic anti-thrashing (s,S).
+ */
+export interface VenueInventory {
+  exchange: ExchangeId;
+  usd: number;
+  btc: number;
+  /** Order-up-to level (transfers return here) — the starting baseline. */
+  targetBtc: number;
+  /** Lower deadband edge (target − band). Below this, the venue pulls BTC in. */
+  floorBtc: number;
+  /** Upper deadband edge (target + band). Above this, the venue sends BTC out. */
+  ceilingBtc: number;
+  /** Estimated max-size trades this venue can still support (binding leg). */
+  capacityTrades: number;
+}
+
+/** A single on-chain inventory-rebalancing transfer (for the timeline). */
+export interface RebalanceEvent {
+  ts: number;
+  fromExchange: ExchangeId;
+  toExchange: ExchangeId;
+  amountBtc: number;
+  costUsd: number;
+}
+
 /** Aggregate performance snapshot. */
 export interface PortfolioStats {
   startingEquityUsd: number;
@@ -219,6 +248,8 @@ export interface PortfolioStats {
   actionableOpportunities: number;
   winRate: number;
   wallets: WalletBalance[];
+  /** Per-venue (s,S) inventory state for the wallets panel. */
+  inventory: VenueInventory[];
   /** Equity curve points for charting. */
   equityCurve: EquityPoint[];
   /** Inventory-rebalancing accounting (amortized withdrawal-fee model). */
@@ -237,6 +268,10 @@ export interface RebalancingStats {
   totalCostUsd: number;
   /** totalCostUsd / trades — the honest per-trade drag from withdrawals. */
   amortizedCostPerTradeUsd: number;
+  /** Deadband half-width (BTC): the (s,S) trigger distance from target. */
+  bandBtc: number;
+  /** Most recent transfers, newest first (for the wallets timeline). */
+  recentEvents: RebalanceEvent[];
 }
 
 export interface EquityPoint {

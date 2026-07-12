@@ -6,6 +6,7 @@ import { StatCards } from "@/components/StatCards";
 import { MarketPanel } from "@/components/MarketPanel";
 import { OpportunityFeed } from "@/components/OpportunityFeed";
 import { TradeBlotter } from "@/components/TradeBlotter";
+import { WalletsPanel } from "@/components/WalletsPanel";
 import { EquityChart } from "@/components/EquityChart";
 import { LatencyPanel } from "@/components/LatencyPanel";
 import { TriangularPanel } from "@/components/TriangularPanel";
@@ -126,6 +127,9 @@ export default function App() {
           >
             <div className="h-[240px]">
               <EquityChart portfolio={state.portfolio} />
+            </div>
+            <div id="tour-wallets" className="h-[300px]">
+              <WalletsPanel portfolio={state.portfolio} />
             </div>
             <div className="min-h-0 flex-1">
               <TradeBlotter trades={state.trades} />

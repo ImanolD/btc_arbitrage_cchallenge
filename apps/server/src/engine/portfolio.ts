@@ -3,11 +3,15 @@ import type {
   EquityPoint,
   ExchangeId,
   PortfolioStats,
+  RebalanceEvent,
   SimulatedTrade,
+  VenueInventory,
   WalletBalance,
 } from "@arb/shared";
 
 const MAX_CURVE_POINTS = 500;
+/** Cap on the rebalance-event timeline surfaced to the wallets panel. */
+const MAX_REBALANCE_EVENTS = 25;
 
 /**
  * Tracks simulated wallet balances per exchange and derives P&L.
@@ -37,6 +41,8 @@ export class Portfolio {
   private rebalanceEvents = 0;
   private rebalanceCostUsd = 0;
   private readonly equityCurve: EquityPoint[] = [];
+  /** Recent on-chain transfers (newest first) for the wallets timeline. */
+  private readonly recentRebalances: RebalanceEvent[] = [];
 
   constructor(
     exchanges: ExchangeId[],
@@ -99,39 +105,58 @@ export class Portfolio {
   }
 
   /**
-   * Inventory model: the buy-venue keeps accumulating BTC while the sell-venue
-   * depletes it. When a venue drifts past the threshold, a real desk moves BTC
-   * on-chain to rebalance — paying that venue's BTC withdrawal fee. We move the
-   * excess to the most-depleted venue, settle the USD leg internally, and book
-   * only the network fee as a (real) cost. This is the ONLY place withdrawal
-   * fees enter the model, exactly as in production: amortized, not per-trade.
+   * Inventory rebalancing as an (s,S) policy with a deadband. Each venue has a
+   * target BTC level (its starting baseline) and a deadband [target − band,
+   * target + band], where `band = config.rebalanceThresholdBtc`. No action is
+   * taken while BTC stays inside the band; when a venue's BTC crosses the
+   * **ceiling** it ships the excess back down to the **target** (order-up-to S),
+   * not just to the ceiling — so a tiny wiggle doesn't immediately re-trigger.
+   * That gap between the trigger (s) and the return level (S) is exactly what
+   * prevents thrashing.
+   *
+   * The excess goes to the most-depleted venue (which is simultaneously below
+   * its own floor), so one transfer fixes both sides. We settle the USD leg
+   * internally and book only the BTC network (withdrawal) fee — the ONLY place
+   * withdrawal fees enter the model, amortized across trades, as in production.
    */
   private rebalanceIfNeeded(referencePrice: number): void {
     if (referencePrice <= 0) return;
-    // Multiple venues can drift; settle each over-threshold accumulator.
+    const band = this.config.rebalanceThresholdBtc;
     for (const wallet of this.wallets.values()) {
       if (wallet.exchange === "demo") continue;
-      const baseline = this.baselineBtc.get(wallet.exchange) ?? 0;
-      const drift = wallet.btc - baseline;
-      if (drift <= this.config.rebalanceThresholdBtc) continue;
+      const target = this.baselineBtc.get(wallet.exchange) ?? 0;
+      const ceiling = target + band;
+      // Only the venue that breached its ceiling ships excess out.
+      if (wallet.btc <= ceiling) continue;
 
-      const target = this.mostDepletedVenue(wallet.exchange);
-      if (!target) continue;
+      const dest = this.mostDepletedVenue(wallet.exchange);
+      if (!dest) continue;
 
       const fee = this.config.fees[wallet.exchange].withdrawalFeeBtc;
-      const amount = drift; // send the excess back toward baseline
+      const amount = wallet.btc - target; // order back down to the target (S)
       const usdValue = amount * referencePrice;
 
       // On-chain BTC transfer (loses the network fee), USD settled internally.
       wallet.btc -= amount;
-      target.btc += amount - fee;
-      target.usd -= usdValue;
+      dest.btc += amount - fee;
+      dest.usd -= usdValue;
       wallet.usd += usdValue;
 
       const costUsd = fee * referencePrice;
       this.realizedPnl -= costUsd;
       this.rebalanceCostUsd += costUsd;
       this.rebalanceEvents += 1;
+      this.recentRebalances.unshift({
+        ts: Date.now(),
+        fromExchange: wallet.exchange,
+        toExchange: dest.exchange,
+        amountBtc: round8(amount),
+        costUsd: round(costUsd),
+      });
+      this.recentRebalances.length = Math.min(
+        this.recentRebalances.length,
+        MAX_REBALANCE_EVENTS,
+      );
     }
   }
 
@@ -166,6 +191,33 @@ export class Portfolio {
     if (this.equityCurve.length > MAX_CURVE_POINTS) this.equityCurve.shift();
   }
 
+  /**
+   * Per-venue (s,S) inventory state for the wallets panel: target, deadband
+   * edges and how many more max-size trades each venue can support (bound by
+   * USD to buy or BTC to sell, whichever runs out first).
+   */
+  private inventory(referencePrice: number): VenueInventory[] {
+    const band = this.config.rebalanceThresholdBtc;
+    const tradeSizeBtc =
+      referencePrice > 0 ? this.config.maxNotionalUsd / referencePrice : 0;
+    return [...this.wallets.values()]
+      .filter((w) => w.exchange !== "demo")
+      .map((w) => {
+        const target = this.baselineBtc.get(w.exchange) ?? 0;
+        const buyable = tradeSizeBtc > 0 ? w.usd / (referencePrice * tradeSizeBtc) : 0;
+        const sellable = tradeSizeBtc > 0 ? w.btc / tradeSizeBtc : 0;
+        return {
+          exchange: w.exchange,
+          usd: round(w.usd),
+          btc: round8(w.btc),
+          targetBtc: round8(target),
+          floorBtc: round8(Math.max(0, target - band)),
+          ceilingBtc: round8(target + band),
+          capacityTrades: Math.max(0, Math.floor(Math.min(buyable, sellable))),
+        };
+      });
+  }
+
   stats(referencePrice: number): PortfolioStats {
     const currentEquity = this.equity(referencePrice);
     // Before the first real price, report equity as its own baseline (0% gain).
@@ -183,12 +235,15 @@ export class Portfolio {
         usd: round(w.usd),
         btc: round8(w.btc),
       })),
+      inventory: this.inventory(referencePrice),
       equityCurve: this.equityCurve,
       rebalancing: {
         events: this.rebalanceEvents,
         totalCostUsd: round(this.rebalanceCostUsd),
         amortizedCostPerTradeUsd:
           this.totalTrades > 0 ? round(this.rebalanceCostUsd / this.totalTrades) : 0,
+        bandBtc: round8(this.config.rebalanceThresholdBtc),
+        recentEvents: this.recentRebalances,
       },
     };
   }

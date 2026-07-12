@@ -114,6 +114,9 @@ const STRINGS = {
     "info.blotter.title": "Blotter de trades",
     "info.blotter.body":
       "Cada fill simulado: ruta, tamaño llenado (fills parciales marcados), precios promedio de compra/venta, fees y ganancia neta. Es la bitácora de ejecución.",
+    "info.wallets.title": "Inventario y rebalanceo (s,S)",
+    "info.wallets.body":
+      "Modelo de inventario: cada venue tiene un objetivo de BTC y una banda muerta [piso, techo]. Mientras el BTC se mantenga dentro de la banda no se hace nada; al cruzar el techo, el venue envía el excedente de vuelta al objetivo (no al límite), evitando el thrashing. La barra muestra el BTC actual (verde en banda, rojo fuera) contra el objetivo y la banda; abajo, la capacidad restante y el timeline de transferencias on-chain con su costo.",
     "nav.stats": "Análisis",
     "stats.title": "Análisis estadístico",
     "stats.subtitle":
@@ -315,6 +318,9 @@ const STRINGS = {
     "info.equitycurve.title": "Equity curve",
     "info.equitycurve.body":
       "Portfolio equity (mark-to-market) over time. It builds as trades execute; enable Demo mode to see it move.",
+    "info.wallets.title": "Inventory & rebalancing (s,S)",
+    "info.wallets.body":
+      "Inventory model: each venue has a BTC target and a deadband [floor, ceiling]. Nothing happens while BTC stays inside the band; on crossing the ceiling the venue ships the excess back to the target (not the limit), which avoids thrashing. The bar shows current BTC (green in-band, red out) against the target and band; below, the remaining capacity and a timeline of on-chain transfers with their cost.",
     "info.blotter.title": "Trade blotter",
     "info.blotter.body":
       "Each simulated fill: route, filled size (partial fills flagged), average buy/sell prices, fees and net profit. This is the execution audit trail.",
