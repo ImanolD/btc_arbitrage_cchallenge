@@ -217,12 +217,40 @@ Un panel dedicado (barra derecha) hace **visible** todo lo anterior:
 
 ---
 
+## ✅ Enviado — Reporte de sesión exportable (CSV/JSON)
+
+Para que un juez se lleve **evidencia** de la sesión —no solo una captura— se
+puede exportar todo lo que está en pantalla en dos formatos, desde
+**Ajustes → Exportar reporte de sesión**:
+
+- **JSON completo** — un único artefacto autocontenido con: `meta` (símbolo,
+  *live since*, uptime), la **configuración exacta en uso** (modo, EV, fees por
+  venue, size, guardas, banda de rebalanceo, exchanges activos, escenario), el
+  **portafolio e inventario** (P&L realizado, wallets, política (s,S),
+  rebalanceos), el **análisis de spreads** (mediana/p95, histograma, actividad
+  por venue) y el **blotter de trades** con estados por pata y resolución del
+  residual.
+- **CSV de trades** — el blotter aplanado a una fila por trade
+  (`executedAt`, venues, tamaños pedido/casado, precios, fees, neto, estado de
+  cada pata, `residualBtc`, `resolution`, `resolutionPnlUsd`, tags de escenario)
+  — listo para abrir en Excel/Sheets y auditar a mano.
+
+### Cómo funciona por dentro
+
+- Se arma **enteramente en el navegador** desde el estado en vivo
+  (`apps/web/src/lib/report.ts`): sin round-trip al servidor, sin backend nuevo,
+  sin secrets — fiel al principio **clean-room**.
+- Toma la misma fuente de verdad que pinta el dashboard (`config`, `portfolio`,
+  `stats`, `trades`), así que **el reporte y la pantalla nunca discrepan**.
+- Descarga vía `Blob` + enlace temporal; nombres con timestamp
+  (`filobot-report-<ISO>.json`, `filobot-trades-<ISO>.csv`).
+
+---
+
 ## 🚧 En curso durante esta fase
 
 Cerrar el loop continúa, en el mismo espíritu de "hacerlo tocable, no narrarlo":
 
-- **Reporte de sesión exportable** — config usada, trades, P&L, rebalanceos y
-  distribución de spreads en CSV/JSON.
 - **`docs/DECISIONS.md`** — bitácora de decisiones técnicas (por qué EV sobre
   umbral, modelo de inventario, fee amortizado, Node vs Bun, IA fuera del hot
   path) + suite de tests en CI.

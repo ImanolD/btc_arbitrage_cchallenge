@@ -19,6 +19,7 @@ import { FiloChat } from "@/components/FiloChat";
 import { CoverPage } from "@/components/CoverPage";
 import { useLang } from "@/lib/i18n";
 import { startTour } from "@/lib/tour";
+import { downloadSessionReport, type ReportFormat } from "@/lib/report";
 
 const GUIDE_SEEN_KEY = "arb_guide_seen";
 
@@ -78,6 +79,17 @@ export default function App() {
         config={state.config}
         onUpdate={state.updateConfig}
         onReset={state.resetSession}
+        onExport={(format: ReportFormat) =>
+          downloadSessionReport(
+            {
+              config: state.config,
+              portfolio: state.portfolio,
+              stats: state.stats,
+              trades: state.trades,
+            },
+            format,
+          )
+        }
         onClose={() => setSettingsOpen(false)}
       />
       <StatusBar

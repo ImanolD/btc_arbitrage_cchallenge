@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, RotateCcw, X } from "lucide-react";
+import { Download, RefreshCw, RotateCcw, X } from "lucide-react";
 import type { EngineConfig, EngineConfigPatch } from "@arb/shared";
 import { useLang, type StringKey } from "@/lib/i18n";
+import type { ReportFormat } from "@/lib/report";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
   config: EngineConfig | null;
   onUpdate: (patch: EngineConfigPatch) => void;
   onReset: () => void;
+  onExport: (format: ReportFormat) => void;
   onClose: () => void;
 }
 
@@ -75,7 +77,7 @@ const PRESETS: { key: StringKey; patch: EngineConfigPatch }[] = [
   },
 ];
 
-export function SettingsPanel({ open, config, onUpdate, onReset, onClose }: Props) {
+export function SettingsPanel({ open, config, onUpdate, onReset, onExport, onClose }: Props) {
   const { t } = useLang();
   if (!open) return null;
 
@@ -109,7 +111,7 @@ export function SettingsPanel({ open, config, onUpdate, onReset, onClose }: Prop
           {!config ? (
             <p className="py-12 text-center text-sm text-muted-foreground">…</p>
           ) : (
-            <Body config={config} onUpdate={onUpdate} onReset={onReset} />
+            <Body config={config} onUpdate={onUpdate} onReset={onReset} onExport={onExport} />
           )}
         </div>
       </div>
@@ -121,10 +123,12 @@ function Body({
   config,
   onUpdate,
   onReset,
+  onExport,
 }: {
   config: EngineConfig;
   onUpdate: Props["onUpdate"];
   onReset: Props["onReset"];
+  onExport: Props["onExport"];
 }) {
   const { t } = useLang();
   const evMode = config.decisionMode === "ev";
@@ -398,6 +402,31 @@ function Body({
         <RotateCcw className="h-3.5 w-3.5" />
         {t("settings.reset")}
       </button>
+
+      {/* Exportable session report (built client-side from live state). */}
+      <Section title={t("settings.export")}>
+        <p className="text-[12px] leading-relaxed text-muted-foreground">
+          {t("settings.export.help")}
+        </p>
+        <div className="mt-1 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onExport("json")}
+            className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/20"
+          >
+            <Download className="h-4 w-4" />
+            {t("settings.export.json")}
+          </button>
+          <button
+            type="button"
+            onClick={() => onExport("csv")}
+            className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Download className="h-4 w-4" />
+            {t("settings.export.csv")}
+          </button>
+        </div>
+      </Section>
 
       {/* Session reset: zero the metrics (not the live feeds). Confirmed. */}
       <Section title={t("settings.session")}>

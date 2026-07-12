@@ -215,6 +215,11 @@ const STRINGS = {
     "settings.scenario.liquidity": "Recorte de liquidez",
     "settings.scenario.gap": "Gap de precio (en ejecución)",
     "settings.scenario.clear": "Limpiar escenario",
+    "settings.export": "Exportar reporte de sesión",
+    "settings.export.help":
+      "Descarga la sesión completa como evidencia: la configuración en uso, P&L e inventario, el análisis de spreads y el blotter de trades. Se arma en el navegador (sin round-trip al servidor).",
+    "settings.export.json": "JSON completo",
+    "settings.export.csv": "CSV de trades",
     "banner.scenario":
       "Modo escenario adverso ACTIVO — se inyectan fallos de orden / liquidez / gaps para probar la robustez. Simulado, no es mercado real.",
     "cover.tagline":
@@ -422,6 +427,11 @@ const STRINGS = {
     "settings.scenario.liquidity": "Liquidity crunch",
     "settings.scenario.gap": "Price gap (mid-execution)",
     "settings.scenario.clear": "Clear scenario",
+    "settings.export": "Export session report",
+    "settings.export.help":
+      "Download the whole session as evidence: the config in force, P&L and inventory, the spread analysis and the trade blotter. Built in the browser (no server round-trip).",
+    "settings.export.json": "Full JSON",
+    "settings.export.csv": "Trades CSV",
     "banner.scenario":
       "Adverse-scenario mode ACTIVE — order-reject / liquidity / gap failures are being injected to test robustness. Simulated, not real market data.",
     "cover.tagline":

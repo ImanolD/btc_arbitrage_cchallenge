@@ -175,6 +175,7 @@ El panel está **agrupado por sección** y encabezado por un contador de **cuán
 - **Fees por exchange** — editor del **taker fee de cada venue**. Súbelo y verás cómo mueren cruces que antes eran rentables; bájalo a 0 y verás cuántos aparecen. El fee es la variable que decide qué es arbitraje y qué no.
 - **Exchanges activos** — *toggle* por venue para **incluirlo o excluirlo del arbitraje** en vivo. Su feed **sigue transmitiéndose** en el panel de mercado; simplemente deja de participar en la comparación y la ejecución.
 - **Filo** — cadencia del resumen y silenciar/activar narraciones.
+- **Exportar reporte de sesión** — descarga toda la sesión como evidencia en **JSON** (config exacta en uso + P&L/inventario + análisis de spreads + blotter con estados por pata) o **CSV** (trades aplanados, listos para Excel/Sheets). Se arma **en el navegador** desde el mismo estado que pinta el dashboard — sin round-trip al servidor ni secrets (clean-room).
 
 ### La tesis, en vivo: EV vs spread
 
