@@ -20,6 +20,7 @@ export function makeConfig(over: Partial<EngineConfig> = {}): EngineConfig {
     minNetProfitUsd: 1,
     maxSaneSpreadPct: 0.05,
     maxQuoteAgeMs: 2_000,
+    maxVenueDeviationPct: 0.01,
     demoMode: false,
     triangular: [],
     ev: { tauMs: 400, adverseBps: 5, minEvUsd: 0 },

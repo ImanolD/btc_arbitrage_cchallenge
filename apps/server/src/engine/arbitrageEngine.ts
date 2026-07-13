@@ -146,14 +146,20 @@ export class ArbitrageEngine extends EventEmitter {
       this.portfolio.ensureBaseline(this.referencePrice);
     }
 
+    // Cross-venue consensus (median mid over fresh, active, non-demo venues),
+    // computed once per tick. The risk gate uses it to quarantine a lagging or
+    // dislocated feed — the failure mode that makes a flaky host look like it's
+    // "printing" phantom arbitrage.
+    const consensusMid = this.computeConsensusMid(Date.now());
+
     // Collect every candidate route touching the venue that just updated,
     // then act on them in priority order (most net-profitable first) so scarce
     // capital is allocated to the best opportunity rather than the first seen.
     const candidates: Candidate[] = [];
     for (const other of this.store.others(book.exchange)) {
-      const a = this.consider(book, other, book); // buy book, sell other
+      const a = this.consider(book, other, book, consensusMid); // buy book, sell other
       if (a) candidates.push(a);
-      const b = this.consider(other, book, book); // buy other, sell book
+      const b = this.consider(other, book, book, consensusMid); // buy other, sell book
       if (b) candidates.push(b);
     }
     if (candidates.length === 0) return;
@@ -198,10 +204,31 @@ export class ArbitrageEngine extends EventEmitter {
    * detection. Pure w.r.t. portfolio/emit — the caller records, emits and
    * executes so it can prioritize across all routes for this tick.
    */
+  /**
+   * Median mid across all fresh, active, non-demo venues. Requires a quorum of
+   * ≥3 venues for a robust median; returns null otherwise (guard inactive). The
+   * demo venue is intentionally dislocated, so it never counts toward consensus.
+   */
+  private computeConsensusMid(now: number): number | null {
+    const mids: number[] = [];
+    for (const b of this.store.all()) {
+      if (b.exchange === "demo") continue;
+      if (this.config.disabledExchanges.includes(b.exchange)) continue;
+      if (now - b.receivedAt > this.config.maxQuoteAgeMs) continue;
+      const mid = (b.bestBid + b.bestAsk) / 2;
+      if (mid > 0) mids.push(mid);
+    }
+    if (mids.length < 3) return null;
+    mids.sort((a, b) => a - b);
+    const m = mids.length;
+    return m % 2 ? mids[(m - 1) / 2] : (mids[m / 2 - 1] + mids[m / 2]) / 2;
+  }
+
   private consider(
     buyBook: TopOfBook,
     sellBook: TopOfBook,
     trigger: TopOfBook,
+    consensusMid: number | null,
   ): Candidate | null {
     // Live venue toggle: a disabled exchange keeps streaming its book (still
     // shown in the market panel) but is excluded from comparison/execution.
@@ -235,7 +262,7 @@ export class ArbitrageEngine extends EventEmitter {
     if (calc.size <= 0) return null;
 
     const now = Date.now();
-    const decision = this.risk.evaluate(calc, buyBook, sellBook, now);
+    const decision = this.risk.evaluate(calc, buyBook, sellBook, now, consensusMid);
 
     // Time from this market tick entering the engine to detection — our code's
     // work only, measured on a monotonic clock for genuine sub-ms precision.

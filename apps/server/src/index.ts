@@ -219,6 +219,14 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
   if (typeof patch.maxQuoteAgeMs === "number" && Number.isFinite(patch.maxQuoteAgeMs)) {
     engineConfig.maxQuoteAgeMs = clamp(patch.maxQuoteAgeMs, 100, 60_000);
   }
+  if (
+    typeof patch.maxVenueDeviationPct === "number" &&
+    Number.isFinite(patch.maxVenueDeviationPct)
+  ) {
+    // 0 disables the guard; otherwise clamp to a sane [0.1%, 20%] band.
+    engineConfig.maxVenueDeviationPct =
+      patch.maxVenueDeviationPct <= 0 ? 0 : clamp(patch.maxVenueDeviationPct, 0.001, 0.2);
+  }
   // Rebalancing threshold (inventory drift in BTC before an on-chain transfer).
   if (
     typeof patch.rebalanceThresholdBtc === "number" &&
@@ -269,7 +277,7 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
   broadcast("config", engineConfig);
   console.log(
     `[config] mode=${engineConfig.decisionMode} minNet=${engineConfig.minNetProfitUsd} ` +
-      `size=${engineConfig.maxNotionalUsd} guards(spread=${engineConfig.maxSaneSpreadPct},age=${engineConfig.maxQuoteAgeMs}) ` +
+      `size=${engineConfig.maxNotionalUsd} guards(spread=${engineConfig.maxSaneSpreadPct},age=${engineConfig.maxQuoteAgeMs},dev=${engineConfig.maxVenueDeviationPct}) ` +
       `rebal=${engineConfig.rebalanceThresholdBtc} disabled=[${engineConfig.disabledExchanges.join(",")}] ` +
       `scenario(rej=${engineConfig.scenario.rejectProb},liq=${engineConfig.scenario.liquidityHaircutPct},gap=${engineConfig.scenario.priceGapBps}) ` +
       `ev(tau=${engineConfig.ev.tauMs},adv=${engineConfig.ev.adverseBps},min=${engineConfig.ev.minEvUsd}) ` +

@@ -61,6 +61,7 @@ export const engineConfig: EngineConfig = {
   minNetProfitUsd: num("MIN_NET_PROFIT_USD", 1),
   maxSaneSpreadPct: num("MAX_SANE_SPREAD_PCT", 0.05),
   maxQuoteAgeMs: num("MAX_QUOTE_AGE_MS", 2_000),
+  maxVenueDeviationPct: num("MAX_VENUE_DEVIATION_PCT", 0.01),
   demoMode: DEMO_MODE_DEFAULT,
   triangular: TRIANGULAR_EXCHANGES.map((exchange) => ({
     exchange,

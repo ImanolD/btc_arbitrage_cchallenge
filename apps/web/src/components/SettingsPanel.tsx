@@ -23,6 +23,7 @@ const DEFAULTS: EngineConfigPatch = {
   maxNotionalUsd: 50_000,
   maxSaneSpreadPct: 0.05,
   maxQuoteAgeMs: 2_000,
+  maxVenueDeviationPct: 0.01,
   rebalanceThresholdBtc: 0.5,
   disabledExchanges: [],
 };
@@ -45,6 +46,7 @@ const PRESETS: { key: StringKey; patch: EngineConfigPatch }[] = [
       maxNotionalUsd: 10_000,
       maxSaneSpreadPct: 0.02,
       maxQuoteAgeMs: 800,
+      maxVenueDeviationPct: 0.005,
       rebalanceThresholdBtc: 1,
     },
   },
@@ -61,6 +63,7 @@ const PRESETS: { key: StringKey; patch: EngineConfigPatch }[] = [
       maxNotionalUsd: 150_000,
       maxSaneSpreadPct: 0.1,
       maxQuoteAgeMs: 4_000,
+      maxVenueDeviationPct: 0.02,
       rebalanceThresholdBtc: 0.25,
     },
   },
@@ -72,6 +75,7 @@ const PRESETS: { key: StringKey; patch: EngineConfigPatch }[] = [
       maxNotionalUsd: 50_000,
       maxSaneSpreadPct: 0.03,
       maxQuoteAgeMs: 500,
+      maxVenueDeviationPct: 0.008,
       rebalanceThresholdBtc: 0.5,
     },
   },
@@ -133,8 +137,8 @@ function Body({
   const { t } = useLang();
   const evMode = config.decisionMode === "ev";
   // Live control count = decisionMode + minNet + 3 EV + 2 Filo + size
-  // + 2 guards + rebalance + 3 adverse-scenario + (taker fee + on/off) per venue.
-  const controlCount = 14 + config.exchanges.length * 2;
+  // + 3 guards + rebalance + 3 adverse-scenario + (taker fee + on/off) per venue.
+  const controlCount = 15 + config.exchanges.length * 2;
 
   return (
     <div className="space-y-6">
@@ -258,6 +262,15 @@ function Body({
           step={100}
           format={(v) => `${v} ms`}
           onChange={(v) => onUpdate({ maxQuoteAgeMs: v })}
+        />
+        <Slider
+          label={t("settings.maxDeviation")}
+          value={Math.round((config.maxVenueDeviationPct ?? 0) * 1000) / 10}
+          min={0}
+          max={5}
+          step={0.1}
+          format={(v) => (v === 0 ? "off" : `${v}%`)}
+          onChange={(v) => onUpdate({ maxVenueDeviationPct: v / 100 })}
         />
       </Section>
 

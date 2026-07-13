@@ -348,6 +348,13 @@ export interface EngineConfig {
   minNetProfitUsd: number;
   maxSaneSpreadPct: number;
   maxQuoteAgeMs: number;
+  /**
+   * Feed-dislocation guard: max fraction a venue's mid may deviate from the
+   * cross-venue consensus (median) before it's treated as a lagging/bad feed and
+   * excluded from arbitrage. Robust to event-loop stalls where quotes look fresh
+   * but are stale. 0 disables the guard.
+   */
+  maxVenueDeviationPct: number;
   /** Whether the synthetic demo/replay injector is currently active. */
   demoMode: boolean;
   /** Venues on which triangular arbitrage is monitored (empty if disabled). */
@@ -386,6 +393,8 @@ export interface EngineConfigPatch {
   maxSaneSpreadPct?: number;
   /** Stale-feed guard: reject quotes older than this (ms). */
   maxQuoteAgeMs?: number;
+  /** Feed-dislocation guard: max mid deviation from cross-venue consensus. */
+  maxVenueDeviationPct?: number;
   /** Inventory drift (BTC) that triggers an on-chain rebalance. */
   rebalanceThresholdBtc?: number;
   /** Partial per-exchange fee overrides (taker fraction / withdrawal BTC). */

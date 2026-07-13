@@ -210,6 +210,7 @@ const STRINGS = {
     "settings.guards": "Riesgo y guardas",
     "settings.maxSpread": "Spread máx. (anti-glitch)",
     "settings.maxAge": "Antigüedad máx. de quote",
+    "settings.maxDeviation": "Desviación máx. vs consenso (feed dislocado)",
     "settings.rebalance": "Rebalanceo de inventario",
     "settings.rebalanceThreshold": "Umbral de drift",
     "settings.rebalance.help":
@@ -435,6 +436,7 @@ const STRINGS = {
     "settings.guards": "Risk & guards",
     "settings.maxSpread": "Max spread (glitch guard)",
     "settings.maxAge": "Max quote age",
+    "settings.maxDeviation": "Max deviation vs consensus (dislocated feed)",
     "settings.rebalance": "Inventory rebalancing",
     "settings.rebalanceThreshold": "Drift threshold",
     "settings.rebalance.help":
