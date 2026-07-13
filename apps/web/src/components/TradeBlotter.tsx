@@ -44,6 +44,11 @@ function LegChip({ leg }: { leg: TradeLeg }) {
 
 /** Leg-state chips plus the residual-resolution outcome for one trade. */
 function StateBadges({ trade: t }: { trade: SimulatedTrade }) {
+  // Older server builds may not carry per-leg state; degrade gracefully instead
+  // of throwing (which would blank the whole dashboard).
+  if (!t.buyLeg || !t.sellLeg) {
+    return t.partial ? <Badge variant="warn">PARTIAL</Badge> : <span className="text-muted-foreground">—</span>;
+  }
   return (
     <div className="flex flex-wrap items-center gap-1">
       <LegChip leg={t.buyLeg} />
