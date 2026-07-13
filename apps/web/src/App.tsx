@@ -3,6 +3,7 @@ import type { EngineConfig } from "@arb/shared";
 import { useArbStream } from "@/hooks/useArbStream";
 import { StatusBar } from "@/components/StatusBar";
 import { StatCards } from "@/components/StatCards";
+import { HeroInsight } from "@/components/HeroInsight";
 import { MarketPanel } from "@/components/MarketPanel";
 import { OpportunityFeed } from "@/components/OpportunityFeed";
 import { TradeBlotter } from "@/components/TradeBlotter";
@@ -114,6 +115,7 @@ export default function App() {
       {scenarioActive(state.config) && <AdverseScenarioBanner />}
 
       <main className="flex flex-1 flex-col gap-3 p-3">
+        <HeroInsight stats={state.stats} />
         <div id="tour-stats">
           <StatCards portfolio={state.portfolio} startedAt={state.config?.startedAt} />
         </div>

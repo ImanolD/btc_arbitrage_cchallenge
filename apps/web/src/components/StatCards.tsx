@@ -40,6 +40,8 @@ export function StatCards({ portfolio, startedAt }: Props) {
   const startEquity = portfolio?.startingEquityUsd ?? 0;
   const equityDelta = equity - startEquity;
   const equityDeltaPct = startEquity ? equityDelta / startEquity : 0;
+  const totalOpps = portfolio?.totalOpportunities ?? 0;
+  const actionableRate = totalOpps > 0 ? (portfolio?.actionableOpportunities ?? 0) / totalOpps : 0;
 
   // Tick once a minute so the uptime label stays current without churn.
   const [now, setNow] = useState(() => Date.now());
@@ -83,7 +85,9 @@ export function StatCards({ portfolio, startedAt }: Props) {
       value: String(portfolio?.totalOpportunities ?? 0),
       icon: Gauge,
       info: "opps",
-      sub: `${portfolio?.actionableOpportunities ?? 0} actionable${uptime ? ` · live ${uptime}` : ""}`,
+      // The story is the RATIO: almost none are actionable after fees — that's
+      // market efficiency, not a broken detector.
+      sub: `${portfolio?.actionableOpportunities ?? 0} actionable (${pct(actionableRate, actionableRate > 0 && actionableRate < 0.01 ? 3 : 1)})${uptime ? ` · live ${uptime}` : ""}`,
       title: liveSince,
     },
     {

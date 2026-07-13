@@ -365,6 +365,33 @@ Del backlog P2, dos ítems se descartaron **a propósito**, fieles a los princip
 
 ---
 
+## ✅ Enviado — El "cero honesto" como prueba, no como bug
+
+Con **datos reales** el spread neto cross-exchange es casi siempre negativo tras
+fees: 0 oportunidades accionables, 0 trades, curva de equity plana. Eso es
+**correcto** (eficiencia de mercado) y es nuestra marca — pero un dashboard en
+cero puede *parecer* inerte a los 5 segundos. Esta fase lo **reencuadra** para que
+el juez entienda al instante que el cero es señal de rigor, no de un bug.
+
+- **Franja "Hallazgo empírico en vivo" (hero insight).** Sobre las tarjetas de
+  métricas, una franja siempre presente resume la población **completa** de cruces
+  analizados: `{N} cruces analizados · neto mediano {X} bps · {r}% accionables — el
+  mercado es eficiente…`. Los datos vienen del agregador server-side
+  (`StatsSnapshot`), no del buffer del cliente, así que la historia se cuenta **aun
+  con 0 trades**. El neto mediano se pinta en rojo para reforzar la tesis
+  (`HeroInsight.tsx`).
+- **Estados vacíos que enseñan.** La curva de equity y el blotter, cuando están
+  vacíos, ya no dicen "sin datos": muestran un mensaje que explica *por qué* el cero
+  es la respuesta correcta y ofrecen un botón **"Encender modo Demo"** de un clic
+  para ver la ejecución de punta a punta (`HonestEmpty.tsx`).
+- **La proporción, no el número crudo.** La tarjeta de **Oportunidades** muestra la
+  fracción accionable (`X accionables (0.0%)`): casi ninguna sobrevive a fees —
+  justo lo que mide el motor.
+- Todo i18n ES/EN. Ninguna de estas piezas inventa datos: reflejan la medición
+  real (o el modo demo, claramente etiquetado).
+
+---
+
 ## Principios que no cambian
 
 - **Honestidad primero.** Todo lo sintético (modo demo, y el futuro inyector de
