@@ -126,11 +126,11 @@ export function StatusBar({
 
       {/* Desktop actions (lg+) */}
       <div className="ml-auto hidden items-center gap-3 lg:flex">
-        <div className="flex items-center gap-2">
+        <div
+          className="flex items-center gap-1.5"
+          title="Processing latency p50 / p95 (our code only)"
+        >
           <Activity className="h-4 w-4 text-primary" />
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            Processing p50/p95
-          </span>
           <span className="text-sm font-semibold tabular-nums text-primary glow-primary">
             {ms(latency?.processing.p50 ?? null)} / {ms(latency?.processing.p95 ?? null)}
           </span>
@@ -164,30 +164,34 @@ export function StatusBar({
             </span>
           )}
         </button>
+        {/* Secondary nav: icon-only (labels as tooltips) to keep the bar for
+            identity + live status + feeds + the two primary actions above. */}
+        <span className="mx-0.5 h-5 w-px bg-white/10" />
         <NavButton
+          iconOnly
           icon={<BarChart3 className="h-3.5 w-3.5" />}
           label={t("nav.stats")}
           onClick={onOpenStats}
-          title={t("nav.stats")}
         />
         <NavButton
+          iconOnly
           icon={<Route className="h-3.5 w-3.5" />}
           label={t("nav.tour")}
           onClick={onStartTour}
-          title={t("nav.tour")}
         />
         <NavButton
+          iconOnly
           icon={<HelpCircle className="h-3.5 w-3.5" />}
           label={t("nav.guide")}
           onClick={onOpenGuide}
-          title={t("nav.guide")}
         />
         <a
           href={REPO_URL}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           title={t("nav.repo")}
+          aria-label={t("nav.repo")}
         >
           <Github className="h-3.5 w-3.5" />
         </a>
@@ -386,6 +390,7 @@ function NavButton({
   active,
   onClick,
   title,
+  iconOnly,
 }: {
   id?: string;
   icon: React.ReactNode;
@@ -393,22 +398,26 @@ function NavButton({
   active?: boolean;
   onClick: () => void;
   title?: string;
+  /** Render only the icon (label becomes the tooltip/aria) to declutter the bar. */
+  iconOnly?: boolean;
 }) {
   return (
     <button
       id={id}
       type="button"
       onClick={onClick}
-      title={title}
+      title={title ?? label}
+      aria-label={label}
       className={cn(
-        "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+        "flex items-center gap-1.5 rounded-md border text-[11px] font-semibold uppercase tracking-wider transition-colors",
+        iconOnly ? "px-2 py-1.5" : "px-2.5 py-1",
         active
           ? "border-warn/50 bg-warn/15 text-warn"
           : "border-border bg-muted text-muted-foreground hover:text-foreground",
       )}
     >
       {icon}
-      {label}
+      {!iconOnly && label}
     </button>
   );
 }

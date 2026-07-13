@@ -133,7 +133,7 @@ export default function App() {
 
           {/* Center: detection */}
           <div className="flex min-h-[480px] flex-col gap-3 lg:col-span-5">
-            <div id="tour-opps" className="min-h-0 flex-1">
+            <div id="tour-opps" className="min-h-[420px] flex-1 lg:min-h-0">
               <OpportunityFeed opportunities={state.opportunities} />
             </div>
             <div id="tour-tri" className="flex-none">
@@ -156,7 +156,7 @@ export default function App() {
             <div id="tour-wallets" className="h-[300px]">
               <WalletsPanel portfolio={state.portfolio} />
             </div>
-            <div className="min-h-0 flex-1">
+            <div className="min-h-[320px] flex-1 lg:min-h-0">
               <TradeBlotter
                 trades={state.trades}
                 demoOn={state.config?.demoMode ?? false}
