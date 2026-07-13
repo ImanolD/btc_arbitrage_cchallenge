@@ -118,7 +118,7 @@ export function StatusBar({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div id="tour-feeds" className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {feeds.map((feed) => (
           <FeedDot key={feed.exchange} feed={feed} />
         ))}

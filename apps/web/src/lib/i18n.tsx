@@ -52,6 +52,15 @@ const STRINGS = {
     "tour.market.title": "Mercado en vivo — 8 exchanges",
     "tour.market.body":
       "Mejor bid/ask transmitido por WebSocket desde 8 exchanges, agrupado por moneda de cotización (USDT vs USD). Solo comparamos venues con la misma cotización: cruzar USD con USDT sería un edge fantasma por el peg de USDT.",
+    "tour.feeds.title": "Salud de feeds y consenso",
+    "tour.feeds.body":
+      "Cada venue muestra su estado: verde en consenso, ámbar si va lento, y rojo pulsante tachado si lo puse en CUARENTENA. Si un feed se disloca del consenso multi-venue (típico en hosts con throttling), lo aíslo del arbitraje para no operar precios rotos — pasa el mouse para ver la desviación en bps.",
+    "tour.hero.title": "El hallazgo, siempre visible",
+    "tour.hero.body":
+      "Aun con 0 trades, esta franja resume la población completa de cruces analizados: el spread neto mediano es negativo tras fees. Ese cero no es un bug — es la eficiencia del mercado, medida.",
+    "tour.wallets.title": "Inventario y rebalanceo (s,S)",
+    "tour.wallets.body":
+      "Cada venue tiene un objetivo de BTC con banda muerta. Solo transfiero (con costo on-chain) cuando el inventario sale de la banda, volviendo al objetivo — sin thrashing. El pronóstico de deriva estima cuántos trades faltan para tocar la banda.",
     "tour.opps.title": "Oportunidades — bruto vs neto vs EV",
     "tour.opps.body":
       "Se muestra cada cruce detectado. Las filas SKIP sobreviven como spread bruto pero mueren tras fees, latencia o valor esperado. Decidimos por VALOR ESPERADO: P(supervivencia) × neto − costo adverso, no por un umbral fijo.",
@@ -70,9 +79,9 @@ const STRINGS = {
     "tour.filo.title": "Filo, tu copiloto 🐾",
     "tour.filo.body":
       "Abre el chat de Filo: te narra lo relevante en vivo (mejor oportunidad, ejecuciones, por qué descartó un cruce) y responde tus preguntas — P&L, latencia, oportunidades — siempre con datos reales del motor. La IA vive fuera del hot path, nunca decide los trades.",
-    "tour.settings.title": "Ajustes: la tesis, en vivo",
+    "tour.settings.title": "Parámetros: la tesis, en vivo",
     "tour.settings.body":
-      "Conmuta entre decisión por valor esperado (EV) y por umbral de spread, y míralo cambiar el feed al instante: en modo spread empiezan a dispararse cruces frágiles que EV descartaba. Aquí también afinas los parámetros del modelo y la cadencia de Filo.",
+      "El botón “Parámetros” abre un drawer lateral persistente (no tapa el dashboard). Conmuta EV ↔ spread y míralo cambiar el feed al instante; ajusta fees por venue, tamaño, guardas y presets de un clic. Aquí también inyectas escenarios adversos (rechazos / haircut / gap) para ver la máquina de estados volver a plano, y exportas la sesión (CSV/JSON). Cambia algo y observa reaccionar todo en vivo.",
     "tour.demo.title": "Enciéndelo y míralo ejecutar",
     "tour.demo.body":
       "Activa el modo demo para inyectar dislocaciones sintéticas (claramente etiquetadas) y ver el camino completo: detección → decisión por EV → ejecución → P&L.",
@@ -298,6 +307,15 @@ const STRINGS = {
     "tour.market.title": "Live market — 8 exchanges",
     "tour.market.body":
       "Best bid/ask streamed over WebSocket from 8 venues, grouped by quote currency (USDT vs USD). We only compare venues with the same quote — crossing USD with USDT would be a phantom edge driven by the USDT peg.",
+    "tour.feeds.title": "Feed health & consensus",
+    "tour.feeds.body":
+      "Each venue shows its health: green in consensus, amber if lagging, and a pulsing red strike-through if I've QUARANTINED it. When a feed dislocates from the multi-venue consensus (common on throttled hosts), I isolate it from arbitrage so we never trade broken prices — hover to see the deviation in bps.",
+    "tour.hero.title": "The finding, always visible",
+    "tour.hero.body":
+      "Even with 0 trades, this strip summarizes the full population of analyzed crosses: the median net spread is negative after fees. That zero isn't a bug — it's market efficiency, measured.",
+    "tour.wallets.title": "Inventory & (s,S) rebalancing",
+    "tour.wallets.body":
+      "Each venue has a BTC target with a deadband. I only transfer (paying the on-chain cost) when inventory leaves the band, returning to target — no thrashing. The drift forecast estimates how many trades until the band is breached.",
     "tour.opps.title": "Opportunities — gross vs net vs EV",
     "tour.opps.body":
       "Every detected cross is shown. SKIP rows survive as a gross spread but die after fees, latency or expected value. We decide by EXPECTED VALUE: P(survival) × net − adverse cost, not a raw threshold.",
@@ -316,9 +334,9 @@ const STRINGS = {
     "tour.filo.title": "Filo, your copilot 🐾",
     "tour.filo.body":
       "Open Filo's chat: it narrates what matters live (best opportunity, executions, why it skipped a cross) and answers your questions — P&L, latency, opportunities — always grounded in real engine data. The AI lives outside the hot path; it never decides trades.",
-    "tour.settings.title": "Settings: the thesis, live",
+    "tour.settings.title": "Parameters: the thesis, live",
     "tour.settings.body":
-      "Flip between expected-value (EV) and spread-threshold decisioning and watch the feed change instantly: in spread mode, fragile crosses that EV rejected start firing. This is also where you tune the model parameters and Filo's cadence.",
+      "The “Parameters” button opens a persistent side drawer (it doesn't cover the dashboard). Flip EV ↔ spread and watch the feed change instantly; tune per-venue fees, size, guards and one-click presets. This is also where you inject adverse scenarios (rejects / haircut / gap) to watch the state machine return to flat, and export the session (CSV/JSON). Change something and watch everything react live.",
     "tour.demo.title": "Turn it on and watch it execute",
     "tour.demo.body":
       "Enable demo mode to inject clearly-labeled synthetic dislocations and see the full path: detection → EV decision → execution → P&L.",

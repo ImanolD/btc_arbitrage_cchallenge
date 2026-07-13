@@ -12,11 +12,14 @@ interface TourStep {
 }
 
 const STEPS: TourStep[] = [
+  { selector: "#tour-feeds", titleKey: "tour.feeds.title", bodyKey: "tour.feeds.body", side: "bottom" },
+  { selector: "#tour-hero", titleKey: "tour.hero.title", bodyKey: "tour.hero.body", side: "bottom" },
   { selector: "#tour-market", titleKey: "tour.market.title", bodyKey: "tour.market.body", side: "right" },
   { selector: "#tour-opps", titleKey: "tour.opps.title", bodyKey: "tour.opps.body", side: "left" },
   { selector: "#tour-tri", titleKey: "tour.tri.title", bodyKey: "tour.tri.body", side: "left" },
   { selector: "#tour-stats", titleKey: "tour.stats.title", bodyKey: "tour.stats.body", side: "bottom" },
   { selector: "#tour-charts", titleKey: "tour.charts.title", bodyKey: "tour.charts.body", side: "top" },
+  { selector: "#tour-wallets", titleKey: "tour.wallets.title", bodyKey: "tour.wallets.body", side: "left" },
   { selector: "#tour-latency", titleKey: "tour.latency.title", bodyKey: "tour.latency.body", side: "right" },
   { selector: "#tour-filo", titleKey: "tour.filo.title", bodyKey: "tour.filo.body", side: "left" },
   { selector: "#tour-settings", titleKey: "tour.settings.title", bodyKey: "tour.settings.body", side: "bottom" },

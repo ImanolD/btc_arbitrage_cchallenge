@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Crosshair } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
+import { Crosshair, Filter } from "lucide-react";
 import type { Opportunity } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,6 +25,12 @@ interface Props {
 const MAX_ROWS = 18;
 
 export function OpportunityFeed({ opportunities }: Props) {
+  // Filters cut the SKIP firehose down to the signal: executable-only, and/or a
+  // single venue's routes. Detection still runs on everything — this is purely
+  // a view.
+  const [execOnly, setExecOnly] = useState(false);
+  const [venue, setVenue] = useState<string>("all");
+
   // Prioritization, made visible: the most net-profitable executable route in
   // the current window — the one the engine allocates capital to first.
   const { best, actionableCount } = useMemo(() => {
@@ -38,7 +44,29 @@ export function OpportunityFeed({ opportunities }: Props) {
     return { best: top, actionableCount: count };
   }, [opportunities]);
 
-  const visible = opportunities.slice(0, MAX_ROWS);
+  // Venues present in the current window, for the by-venue filter.
+  const venues = useMemo(() => {
+    const s = new Set<string>();
+    for (const o of opportunities) {
+      s.add(o.buyExchange);
+      s.add(o.sellExchange);
+    }
+    return [...s].sort();
+  }, [opportunities]);
+
+  const filtered = useMemo(
+    () =>
+      opportunities.filter((o) => {
+        if (execOnly && !o.actionable) return false;
+        if (venue !== "all" && o.buyExchange !== venue && o.sellExchange !== venue)
+          return false;
+        return true;
+      }),
+    [opportunities, execOnly, venue],
+  );
+
+  const visible = filtered.slice(0, MAX_ROWS);
+  const filterActive = execOnly || venue !== "all";
 
   return (
     <Card className="flex h-full flex-col">
@@ -76,6 +104,32 @@ export function OpportunityFeed({ opportunities }: Props) {
             </span>
           </div>
         )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Filter className="h-3 w-3 text-muted-foreground/60" />
+          <FilterChip active={!filterActive} onClick={() => { setExecOnly(false); setVenue("all"); }}>
+            All
+          </FilterChip>
+          <FilterChip active={execOnly} onClick={() => setExecOnly((v) => !v)}>
+            Executable only
+          </FilterChip>
+          <select
+            value={venue}
+            onChange={(e) => setVenue(e.target.value)}
+            className={cn(
+              "ml-auto rounded-md border bg-transparent px-2 py-0.5 text-[11px] outline-none transition-colors",
+              venue !== "all"
+                ? "border-primary/50 text-primary"
+                : "border-border text-muted-foreground",
+            )}
+          >
+            <option value="all">All venues</option>
+            {venues.map((v) => (
+              <option key={v} value={v}>
+                {titleCase(v)}
+              </option>
+            ))}
+          </select>
+        </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full">
@@ -97,6 +151,15 @@ export function OpportunityFeed({ opportunities }: Props) {
                 <TableRow>
                   <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                     No crosses detected yet. Real BTC arbs are rare — that's expected.
+                  </TableCell>
+                </TableRow>
+              )}
+              {opportunities.length > 0 && visible.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                    {execOnly
+                      ? "No executable crosses in this window — net EV stays below the bar (that's the efficiency filter working)."
+                      : "No crosses match this filter."}
                   </TableCell>
                 </TableRow>
               )}
@@ -142,9 +205,12 @@ export function OpportunityFeed({ opportunities }: Props) {
                     {opp.actionable ? (
                       <Badge variant="profit">EXEC</Badge>
                     ) : (
-                      <Badge variant="muted" title={opp.reason}>
-                        SKIP
-                      </Badge>
+                      <div className="flex items-center justify-end gap-1.5" title={opp.reason}>
+                        <span className="hidden max-w-[140px] truncate text-[10px] text-muted-foreground/70 lg:inline">
+                          {opp.reason}
+                        </span>
+                        <Badge variant="muted">SKIP</Badge>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
@@ -154,5 +220,31 @@ export function OpportunityFeed({ opportunities }: Props) {
         </ScrollArea>
       </CardContent>
     </Card>
+  );
+}
+
+/** A compact toggle chip for the feed's view filters. */
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
+        active
+          ? "border-primary/50 bg-primary/15 text-primary"
+          : "border-border text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
