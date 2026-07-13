@@ -1,3 +1,5 @@
+import { type ReactNode, useMemo, useState } from "react";
+import { Filter } from "lucide-react";
 import type { SimulatedTrade, TradeLeg } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -77,14 +79,70 @@ function StateBadges({ trade: t }: { trade: SimulatedTrade }) {
   );
 }
 
+/**
+ * A fill is "imperfect" when it didn't land as two cleanly-filled legs: a partial
+ * fill, a rejected/partial leg, or a residual that had to be re-hedged/unwound.
+ * These are exactly the cases the execution state machine exists to handle, so a
+ * filter for them makes the robustness story tangible.
+ */
+function isImperfect(t: SimulatedTrade): boolean {
+  if (t.partial) return true;
+  if (t.resolution && t.resolution !== "none") return true;
+  const legs = [t.buyLeg, t.sellLeg];
+  return legs.some((l) => l && l.state !== "filled");
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
+        active
+          ? "border-primary/50 bg-primary/10 text-primary"
+          : "border-border text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function TradeBlotter({ trades, demoOn, onEnableDemo }: Props) {
+  const [residualOnly, setResidualOnly] = useState(false);
+  const imperfectCount = useMemo(() => trades.filter(isImperfect).length, [trades]);
+  const visible = useMemo(
+    () => (residualOnly ? trades.filter(isImperfect) : trades),
+    [trades, residualOnly],
+  );
+
   return (
     <Card className="flex h-full flex-col">
-      <CardHeader>
+      <CardHeader className="space-y-2 pb-3">
         <div className="flex items-center justify-between">
           <CardTitle>Trade blotter — simulated fills</CardTitle>
           <InfoButton titleKey="info.blotter.title" bodyKey="info.blotter.body" />
         </div>
+        {trades.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Filter className="h-3 w-3 text-muted-foreground/60" />
+            <FilterChip active={!residualOnly} onClick={() => setResidualOnly(false)}>
+              All
+            </FilterChip>
+            <FilterChip active={residualOnly} onClick={() => setResidualOnly((v) => !v)}>
+              Residual / partial{imperfectCount > 0 ? ` (${imperfectCount})` : ""}
+            </FilterChip>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         {trades.length === 0 ? (
@@ -105,8 +163,20 @@ export function TradeBlotter({ trades, demoOn, onEnableDemo }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {trades.map((t) => (
-                <TableRow key={t.id}>
+              {visible.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                    No partial or residual fills yet — every trade landed as two clean
+                    legs. Dial up a reject/liquidity scenario in Parameters to exercise
+                    the state machine.
+                  </TableCell>
+                </TableRow>
+              )}
+              {visible.map((t) => (
+                <TableRow
+                  key={t.id}
+                  className={t.netProfit >= 0 ? "animate-flash-green" : "animate-flash-red"}
+                >
                   <TableCell className="text-muted-foreground">{time(t.executedAt)}</TableCell>
                   <TableCell>
                     {titleCase(t.buyExchange)} → {titleCase(t.sellExchange)}

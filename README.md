@@ -153,6 +153,7 @@ Los arbitrajes netos positivos reales entre venues importantes son prácticament
 - Un venue sintético `demo` cotiza alrededor del precio de referencia en vivo e inyecta dislocaciones breves y realistas, suficientes para superar las comisiones de ida y vuelta.
 - Todo lo demás es el motor real: detección, net-profit por profundidad, riesgo, simulador, portafolio.
 - Es **imposible confundirlo con datos reales** — se muestra un banner permanente y el venue se llama `demo`.
+- **Seguro para dejarlo corriendo.** La memoria del proceso está **acotada por diseño** (curva de equity, ventanas de percentiles, timeline de rebalanceo e historial de chat tienen tope; el cliente recorta feeds a 60), así que ni el modo en vivo ni el demo acumulan memoria por horas. Y cuando se desconecta el **último cliente**, el inyector de demo se **auto-apaga** para no fabricar trades sintéticos sin público en el deploy compartido — los feeds reales siguen; al volver, se re-activa con un clic (o la tecla `D`).
 
 Actívalo en vivo desde el dashboard (botón **Demo**), o arranca con él encendido:
 
@@ -162,7 +163,7 @@ DEMO_MODE=true bun run dev:server
 
 ## Centro de parametrización en vivo
 
-> **Novedad de la fase final.** Todo el comportamiento del bot es **ajustable en vivo** desde el control **Parámetros** de la barra de estado (con chip de modo EV/Spread y badge del contador). Se abre como **drawer lateral persistente** —no un modal que tapa el dashboard— así puedes **ajustar un parámetro y ver reaccionar el feed y el P&L al instante, sin cerrar nada** (en móvil cae a bottom-sheet). Nada requiere reinicio: cada cambio viaja por Socket.IO, se **valida y acota** en el servidor, y se refleja al instante en el feed, el P&L y en **todos los clientes conectados**. El detalle de esta fase está en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
+> **Novedad de la fase final.** Todo el comportamiento del bot es **ajustable en vivo** desde el control **Parámetros** de la barra de estado (con chip de modo EV/Spread y badge del contador). Se abre como **drawer lateral persistente** —no un modal que tapa el dashboard— así puedes **ajustar un parámetro y ver reaccionar el feed y el P&L al instante, sin cerrar nada** (en móvil cae a bottom-sheet). Nada requiere reinicio: cada cambio viaja por Socket.IO, se **valida y acota** en el servidor, y se refleja al instante en el feed, el P&L y en **todos los clientes conectados**. Para power-users hay **atajos de teclado** (`D` demo · `P` parámetros · `S` análisis · `?` guía · `Esc` cerrar; se desactivan mientras escribes). El detalle de esta fase está en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
 
 El panel está **agrupado por sección** y encabezado por un contador de **cuántos controles están vivos** (`N controles en vivo`), que crece con el número de venues:
 
@@ -205,7 +206,7 @@ El **inyector de escenarios adversos** (claramente etiquetado, banner rojo + sec
 - **Recorte de liquidez** — encoge la profundidad del book (crunch).
 - **Gap de precio en ejecución** — el mercado se mueve en contra a mitad de la operación.
 
-En el **blotter** cada fila muestra el estado de cada pata (B✓ / S✕ / ◑) y un badge `RE-HEDGED` / `UNWOUND` / `PARTIAL` con el residual y el costo de aplanar; **Filo narra** cada vuelta a plano. Bajo un gap fuerte los netos salen en rojo — y así debe ser: el mercado se movió en contra y el sistema lo refleja con honestidad. Como todo lo sintético (igual que el modo demo), es **imposible confundirlo con datos reales**, arranca inactivo y no requiere credenciales.
+En el **blotter** cada fila muestra el estado de cada pata (B✓ / S✕ / ◑) y un badge `RE-HEDGED` / `UNWOUND` / `PARTIAL` con el residual y el costo de aplanar; **Filo narra** cada vuelta a plano. Un filtro **Residual · partial** aísla justo los fills que la máquina de estados tuvo que resolver, y cada fill nuevo hace un breve *flash* (verde/rojo) para leer la actividad de un vistazo. Bajo un gap fuerte los netos salen en rojo — y así debe ser: el mercado se movió en contra y el sistema lo refleja con honestidad. Como todo lo sintético (igual que el modo demo), es **imposible confundirlo con datos reales**, arranca inactivo y no requiere credenciales.
 
 Implementación: `apps/server/src/engine/executionSimulator.ts` (patas, rejects, haircut, gap, resolución) y `engine/portfolio.ts` (aplica los deltas). El estado del escenario es parte de `EngineConfig.scenario` y viaja por el mismo `updateConfig` validado en el servidor.
 

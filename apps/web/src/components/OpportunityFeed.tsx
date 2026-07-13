@@ -133,7 +133,7 @@ export function OpportunityFeed({ opportunities }: Props) {
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full">
-          <Table>
+          <Table className="[&_td]:px-1.5 [&_th]:px-1.5">
             <TableHeader>
               <TableRow>
                 <TableHead>Time</TableHead>
@@ -206,7 +206,10 @@ export function OpportunityFeed({ opportunities }: Props) {
                       <Badge variant="profit">EXEC</Badge>
                     ) : (
                       <div className="flex items-center justify-end gap-1.5" title={opp.reason}>
-                        <span className="hidden max-w-[140px] truncate text-[10px] text-muted-foreground/70 lg:inline">
+                        {/* Inline reason only where the center column is genuinely wide
+                            (2xl); below that it would overflow the 8-column grid, so it
+                            stays available as a tooltip on the SKIP badge. */}
+                        <span className="hidden max-w-[130px] truncate text-[10px] text-muted-foreground/70 2xl:inline">
                           {opp.reason}
                         </span>
                         <Badge variant="muted">SKIP</Badge>

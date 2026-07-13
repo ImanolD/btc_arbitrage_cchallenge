@@ -392,6 +392,35 @@ el juez entienda al instante que el cero es señal de rigor, no de un bug.
 
 ---
 
+## ✅ Enviado — Pulido de usabilidad y estabilidad de sesión larga
+
+Últimos detalles que suben el acabado sin tocar el motor:
+
+- **Filtro del blotter por residual/parcial.** Un chip **All / Residual · partial**
+  aísla los fills que *no* cerraron como dos patas limpias (fill parcial, pata
+  rechazada, o residual re-hedged/unwound). Convierte la máquina de estados en algo
+  que el juez puede pedir explícitamente: "muéstrame solo cuando el sistema tuvo que
+  resolver un residual". Si no hay ninguno, el panel sugiere subir un escenario de
+  rechazo en Parámetros para ejercitarla.
+- **Feedback de ejecución.** Cada fill nuevo hace un *flash* sutil (verde si el neto
+  es positivo, rojo si es negativo) para que la actividad del blotter se lea de un
+  vistazo.
+- **Atajos de teclado.** `D` demo · `P` parámetros · `S` análisis · `?` ayuda ·
+  `Esc` cerrar. Se desactivan mientras se escribe (chat de Filo, inputs), así que
+  nunca interfieren. Están listados en el overlay de guía.
+- **Feed legible en cualquier ancho.** La razón de skip inline solo aparece cuando la
+  columna central es realmente ancha; en pantallas normales sigue disponible como
+  tooltip sobre el badge, sin desbordar la grilla.
+- **Sesión larga sin sorpresas.** La memoria del proceso está **acotada por diseño**
+  (curva de equity ≤500 puntos, ventanas de percentiles ≤3000, timeline de rebalanceo
+  ≤25, historial de Filo ≤40; el cliente recorta feeds a 60). Correr en vivo — o en
+  Demo — durante horas **no acumula memoria**. Además, cuando se desconecta el último
+  cliente, el inyector sintético de Demo se **auto-apaga** para no generar trades
+  sintéticos sin nadie mirando en el deploy compartido (los feeds reales siguen; al
+  volver, se re-activa Demo con un clic o la tecla `D`).
+
+---
+
 ## Principios que no cambian
 
 - **Honestidad primero.** Todo lo sintético (modo demo, y el futuro inyector de

@@ -181,7 +181,17 @@ io.on("connection", (socket: ArbSocket) => {
       .catch((err) => console.warn("[filo] ask failed", err));
   });
 
-  socket.on("disconnect", () => clients.delete(socket));
+  socket.on("disconnect", () => {
+    clients.delete(socket);
+    // Nobody's watching anymore: stop the synthetic demo injector so it doesn't
+    // run unattended for hours on the shared deployment. Memory is bounded either
+    // way (capped windows/curves), but this keeps an idle server quiet. Live
+    // exchange feeds keep streaming; a returning judge just re-toggles Demo.
+    if (clients.size === 0 && engineConfig.demoMode) {
+      setDemoMode(false);
+      console.log("[demo] auto-stopped: no connected clients");
+    }
+  });
 });
 
 // Synthetic demo/replay venue — feeds the engine like any other connector.

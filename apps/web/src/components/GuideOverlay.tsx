@@ -111,6 +111,11 @@ export function GuideOverlay({ open, demoOn, onClose, onStartTour, onEnableDemo 
               </button>
             </p>
           )}
+
+          {/* Power-user keyboard shortcuts (discoverability). */}
+          <p className="mt-4 text-center text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            {t("guide.shortcuts")}
+          </p>
         </div>
 
         {/* Resources */}

@@ -56,6 +56,45 @@ export default function App() {
     setTimeout(() => startTour(t, () => state.setDemo(true)), 80);
   };
 
+  // Power-user keyboard shortcuts (D demo · P params · S stats · ? guide · Esc
+  // close). Ignored while typing (chat/inputs) or with a modifier held, so they
+  // never fight the OS or Filo's chat box.
+  useEffect(() => {
+    if (!entered) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable)
+        return;
+      switch (e.key) {
+        case "d":
+        case "D":
+          state.setDemo(!(state.config?.demoMode ?? false));
+          break;
+        case "p":
+        case "P":
+          setSettingsOpen((v) => !v);
+          break;
+        case "s":
+        case "S":
+          setStatsOpen((v) => !v);
+          break;
+        case "?":
+          setGuideOpen(true);
+          break;
+        case "Escape":
+          setSettingsOpen(false);
+          setStatsOpen(false);
+          break;
+        default:
+          return;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [entered, state.setDemo, state.config?.demoMode]);
+
   return (
     <div
       className={cn(
