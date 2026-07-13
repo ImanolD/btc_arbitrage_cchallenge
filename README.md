@@ -162,7 +162,7 @@ DEMO_MODE=true bun run dev:server
 
 ## Centro de parametrización en vivo
 
-> **Novedad de la fase final.** Todo el comportamiento del bot es **ajustable en vivo** desde el panel de **Ajustes** (engranaje en la barra de estado). Nada requiere reinicio: cada cambio viaja por Socket.IO, se **valida y acota** en el servidor, y se refleja al instante en el feed, el P&L y en **todos los clientes conectados**. El detalle de esta fase está en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
+> **Novedad de la fase final.** Todo el comportamiento del bot es **ajustable en vivo** desde el control **Parámetros** de la barra de estado (con chip de modo EV/Spread y badge del contador). Se abre como **drawer lateral persistente** —no un modal que tapa el dashboard— así puedes **ajustar un parámetro y ver reaccionar el feed y el P&L al instante, sin cerrar nada** (en móvil cae a bottom-sheet). Nada requiere reinicio: cada cambio viaja por Socket.IO, se **valida y acota** en el servidor, y se refleja al instante en el feed, el P&L y en **todos los clientes conectados**. El detalle de esta fase está en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
 
 El panel está **agrupado por sección** y encabezado por un contador de **cuántos controles están vivos** (`N controles en vivo`), que crece con el número de venues:
 

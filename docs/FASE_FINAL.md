@@ -22,10 +22,18 @@ diferencie a los proyectos"*, y preguntó explícitamente si el usuario puede
 ajustar **umbrales, fees, tamaños de orden y exchanges activos**.
 
 Respuesta: sí, los cuatro — y bastante más — **desde la UI, en vivo, sin
-reiniciar**. El panel de **Ajustes** pasó de ~6 controles sueltos a un centro de
+reiniciar**. El panel de **Parámetros** pasó de ~6 controles sueltos a un centro de
 parametrización **agrupado por sección**, encabezado por un contador de
-`N controles en vivo` (27 con la configuración por defecto de 8 venues; crece con
+`N controles en vivo` (31 con la configuración por defecto de 8 venues; crece con
 cada venue añadido).
+
+Además, el panel dejó de ser un **modal que tapa el dashboard** y ahora es un
+**drawer lateral persistente**: en desktop se ancla a la derecha y el contenido se
+recorre para no quedar oculto, de modo que puedes **ajustar un parámetro y ver
+reaccionar el feed y el P&L al instante, sin cerrar nada** (en móvil cae a
+bottom-sheet). El disparador ya no es el críptico botón "EV": es un control
+**"Parámetros"** resaltado, con un chip del modo activo (EV/Spread) y un badge con
+el contador de controles en vivo.
 
 ### Qué se puede ajustar ahora
 
@@ -76,8 +84,10 @@ ver el comportamiento cambiar al instante:
 
 ### Prueba de 60 segundos (para el jurado)
 
-1. Abre **Ajustes** (engranaje en la barra de estado). Fíjate en el contador
-   `N controles en vivo` arriba.
+1. Abre **Parámetros** (botón resaltado en la barra de estado, con el chip de modo
+   EV/Spread y el badge del contador). Se abre como **drawer lateral persistente**:
+   déjalo abierto y ve reaccionar el feed/P&L mientras ajustas. Fíjate en el
+   contador `N controles en vivo` arriba.
 2. En **Fees por exchange**, sube el taker fee de un venue a un valor alto:
    verás en el feed cómo cruces que antes pasaban ahora quedan en `SKIP` (neto
    negativo). Bájalo a `0` y reaparecen.
