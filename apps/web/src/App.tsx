@@ -122,7 +122,7 @@ export default function App() {
           {/* Left rail: live market + latency */}
           <div className="flex flex-col gap-3 lg:col-span-3">
             <div id="tour-market">
-              <MarketPanel books={state.books} />
+              <MarketPanel books={state.books} feeds={state.feeds} />
             </div>
             <div id="tour-latency" className="min-h-[200px] flex-1">
               <LatencyPanel latency={state.latency} />

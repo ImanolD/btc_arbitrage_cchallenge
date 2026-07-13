@@ -105,6 +105,32 @@ function broadcast<E extends keyof ServerToClientEvents>(
   for (const socket of clients) socket.emit(event, ...args);
 }
 
+/**
+ * Merge the connection-level feed status (connected/connecting/down + last tick)
+ * with the engine's live consensus health (deviation vs median, staleness,
+ * quarantine). One object per venue so the dashboard can show a feed being
+ * isolated — the visible face of the dislocated-feed guard.
+ */
+function currentFeeds(): FeedStatus[] {
+  const health = new Map(engine.feedHealth().map((h) => [h.exchange, h]));
+  return [...feedStatus.values()].map((f) => {
+    const h = health.get(f.exchange);
+    return {
+      ...f,
+      deviationBps: h?.deviationBps ?? null,
+      stale: h?.stale ?? false,
+      dislocated: h?.dislocated ?? false,
+    };
+  });
+}
+
+/** Broadcast merged feed health and let Filo narrate quarantine transitions. */
+function emitFeeds(): void {
+  const feeds = currentFeeds();
+  broadcast("feeds", feeds);
+  filo.noteFeedHealth(feeds);
+}
+
 // Engine → clients. Books are emitted directly from connectors below; engine
 // emits the derived analytics.
 engine.on("opportunity", (opp) => broadcast("opportunity", opp));
@@ -121,7 +147,7 @@ io.on("connection", (socket: ArbSocket) => {
 
   // Replay current state so a freshly-connected dashboard isn't blank.
   socket.emit("config", engineConfig);
-  socket.emit("feeds", [...feedStatus.values()]);
+  socket.emit("feeds", currentFeeds());
   socket.emit("portfolio", engine.portfolioStats());
   socket.emit("latency", engine.latencySnapshot());
   // Replay Filo's recent chatter so the chat panel has context on open.
@@ -300,7 +326,7 @@ function setDemoMode(enabled: boolean): void {
     feedStatus.delete("demo");
   }
   broadcast("config", engineConfig);
-  broadcast("feeds", [...feedStatus.values()]);
+  emitFeeds();
   filo.noteDemo(enabled);
   console.log(`[demo] ${enabled ? "ENABLED" : "disabled"}`);
 }
@@ -329,7 +355,7 @@ for (const connector of connectors) {
     const fs = feedStatus.get(connector.id);
     const wasConnected = fs?.status === "connected";
     if (fs) fs.status = status;
-    broadcast("feeds", [...feedStatus.values()]);
+    emitFeeds();
     // Let Filo flag a venue that drops after having been live.
     if (wasConnected && status === "disconnected") filo.noteFeedDown(connector.id);
     console.log(`[${connector.id}] ${status}`);
@@ -340,6 +366,10 @@ for (const connector of connectors) {
 
 engine.start();
 filo.start();
+// Refresh feed health (deviation vs consensus, staleness, quarantine) on a
+// steady cadence — off the hot path — so the dashboard reflects a dislocated
+// venue within ~1.5s even when no status transition fires.
+setInterval(emitFeeds, 1500);
 // Optional WhatsApp transport for Filo (no-ops cleanly when unconfigured).
 whatsapp.start().catch((err) => console.warn("[whatsapp] start failed", err));
 

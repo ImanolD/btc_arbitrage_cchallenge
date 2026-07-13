@@ -327,14 +327,29 @@ arbitrajes fantasma.
   venue `demo` (dislocado a propósito) queda exento. Implementación:
   `arbitrageEngine.computeConsensusMid` + `engine/riskManager.ts`; el rechazo
   aparece en el feed como `dislocated feed: <venue> X% vs consensus`.
-- **Live-tunable.** `maxVenueDeviationPct` se ajusta desde Ajustes → Riesgo y
+- **Ahora es VISIBLE (no solo un rechazo en logs).** La misma matemática se expone
+  al dashboard: `ArbitrageEngine.feedHealth()` reusa el consenso y calcula, por
+  venue, la **desviación en bps**, si está **stale** y si está **dislocado**; el
+  servidor la fusiona con el estado de conexión (`currentFeeds()`) y la reemite
+  cada 1.5 s. En la UI:
+  - Los **dots de feeds** de la barra de estado cambian de color por salud: verde
+    (en consenso) · ámbar (conectando/stale) · rojo (caído) · **rojo pulsante y
+    tachado (en cuarentena)**, con tooltip que muestra la desviación en bps.
+  - El **panel de mercado** marca la fila del venue aislado con un badge
+    **`CUARENTENA`** y la atenúa.
+  - **Filo narra las transiciones** ("Puse a OKX en cuarentena: 2.1% fuera del
+    consenso" / "OKX volvió al consenso"), vía `noteFeedHealth`.
+  Así, el episodio embarazoso del deploy se convierte en una **demostración de
+  robustez** que el juez puede ver, no solo leer.
+- **Live-tunable.** `maxVenueDeviationPct` se ajusta desde Parámetros → Riesgo y
   guardas (0 = off), viaja validado por el servidor, y se suma a los presets. El
-  contador de controles en vivo pasó de 14 a **15** (+ 2 por venue).
+  contador de controles en vivo es **31** con 8 venues (15 base + 2 por venue).
 - **Resiliencia de UI.** El frontend va envuelto en un **error boundary**: un
   payload con forma inesperada (p. ej. desfase de versión servidor/cliente en un
   redeploy parcial) muestra un mensaje recuperable con recarga en vez de una
   **pantalla en negro**. El blotter degrada con gracia trades sin estado por pata.
-- Cubierto por `riskManager.test.ts` (5 casos). Suite total: **20 tests**.
+- Cubierto por `riskManager.test.ts` (5 casos), que ejercita la misma
+  `computeConsensusMid` en que se basa `feedHealth()`. Suite total: **20 tests**.
 
 ### Fuera de alcance (deliberado)
 

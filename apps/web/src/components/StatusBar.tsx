@@ -120,21 +120,7 @@ export function StatusBar({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {feeds.map((feed) => (
-          <div key={feed.exchange} className="flex items-center gap-1.5">
-            <Radio
-              className={cn(
-                "h-3.5 w-3.5",
-                feed.status === "connected"
-                  ? "text-profit"
-                  : feed.status === "connecting"
-                    ? "text-warn"
-                    : "text-loss",
-              )}
-            />
-            <span className="text-[11px] text-muted-foreground">
-              {titleCase(feed.exchange)}
-            </span>
-          </div>
+          <FeedDot key={feed.exchange} feed={feed} />
         ))}
       </div>
 
@@ -335,6 +321,61 @@ export function StatusBar({
         </>
       )}
     </header>
+  );
+}
+
+/**
+ * A single venue's live feed indicator. Color encodes connection + consensus
+ * health: green = healthy & in consensus, amber = connecting/stale, red =
+ * disconnected, and a pulsing red strike-through = quarantined by the
+ * dislocated-feed guard (excluded from arbitrage). The tooltip carries the
+ * deviation vs consensus in bps — the visible face of that robustness guard.
+ */
+function FeedDot({ feed }: { feed: FeedStatus }) {
+  const { t } = useLang();
+  const connected = feed.status === "connected";
+  const dislocated = connected && feed.dislocated === true;
+  const stale = connected && feed.stale === true && !dislocated;
+
+  const dotClass = !connected
+    ? feed.status === "connecting"
+      ? "text-warn"
+      : "text-loss"
+    : dislocated
+      ? "text-loss"
+      : stale
+        ? "text-warn"
+        : "text-profit";
+
+  const statusText = !connected
+    ? feed.status === "connecting"
+      ? t("feed.connecting")
+      : t("feed.down")
+    : dislocated
+      ? t("feed.dislocated")
+      : stale
+        ? t("feed.stale")
+        : t("feed.healthy");
+
+  const dev = feed.deviationBps != null ? ` · ${feed.deviationBps} bps` : "";
+
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      title={`${titleCase(feed.exchange)}: ${statusText}${dev}`}
+    >
+      <Radio className={cn("h-3.5 w-3.5", dotClass, dislocated && "animate-pulse")} />
+      <span
+        className={cn(
+          "text-[11px]",
+          dislocated
+            ? "text-loss line-through decoration-loss/60"
+            : "text-muted-foreground",
+        )}
+      >
+        {titleCase(feed.exchange)}
+      </span>
+    </div>
   );
 }
 

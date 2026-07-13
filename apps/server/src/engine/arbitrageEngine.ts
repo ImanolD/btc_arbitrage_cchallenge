@@ -209,6 +209,45 @@ export class ArbitrageEngine extends EventEmitter {
    * ≥3 venues for a robust median; returns null otherwise (guard inactive). The
    * demo venue is intentionally dislocated, so it never counts toward consensus.
    */
+  /**
+   * Per-venue feed health vs the cross-venue consensus, for the dashboard. Same
+   * math the risk gate uses to quarantine a dislocated feed — surfaced so the
+   * UI can SHOW a venue being isolated (deviation in bps + stale + dislocated),
+   * turning the "flaky-host" defense into a visible feature. Only venues with a
+   * book are reported; the demo venue is always non-dislocated (null deviation).
+   */
+  feedHealth(now = Date.now()): Array<{
+    exchange: ExchangeId;
+    deviationBps: number | null;
+    stale: boolean;
+    dislocated: boolean;
+  }> {
+    const consensus = this.computeConsensusMid(now);
+    const guard = this.config.maxVenueDeviationPct;
+    const out: Array<{
+      exchange: ExchangeId;
+      deviationBps: number | null;
+      stale: boolean;
+      dislocated: boolean;
+    }> = [];
+    for (const b of this.store.all()) {
+      const stale = now - b.receivedAt > this.config.maxQuoteAgeMs;
+      const mid = (b.bestBid + b.bestAsk) / 2;
+      let deviationBps: number | null = null;
+      let dislocated = false;
+      if (b.exchange !== "demo" && consensus && consensus > 0 && mid > 0) {
+        const dev = Math.abs(mid - consensus) / consensus;
+        deviationBps = round1(dev * 10_000);
+        dislocated =
+          guard > 0 &&
+          !this.config.disabledExchanges.includes(b.exchange) &&
+          dev > guard;
+      }
+      out.push({ exchange: b.exchange, deviationBps, stale, dislocated });
+    }
+    return out;
+  }
+
   private computeConsensusMid(now: number): number | null {
     const mids: number[] = [];
     for (const b of this.store.all()) {
@@ -371,6 +410,9 @@ function round2(n: number): number {
 }
 function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
+}
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }
 function round8(n: number): number {
   return Math.round(n * 1e8) / 1e8;

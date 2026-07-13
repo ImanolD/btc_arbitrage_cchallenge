@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type {
   EngineConfig,
   ExchangeId,
+  FeedStatus,
   FiloLang,
   FiloMessage,
   LatencyStats,
@@ -49,6 +50,8 @@ export class FiloAgent extends EventEmitter {
   private pendingTrades: SimulatedTrade[] = [];
   /** Last-announced adverse-scenario active state (for on↔off narration). */
   private scenarioActive = false;
+  /** Venues currently quarantined by the consensus guard (for enter↔clear narration). */
+  private dislocatedVenues = new Set<ExchangeId>();
 
   constructor(private readonly config: EngineConfig) {
     super();
@@ -124,6 +127,26 @@ export class FiloAgent extends EventEmitter {
   /** Note a venue feed dropping out. */
   noteFeedDown(exchange: ExchangeId): void {
     this.push("update", T.feedDown(cap(exchange)), "warn");
+  }
+
+  /**
+   * React to per-venue feed health, narrating only the *transitions*: a venue
+   * entering quarantine (its mid dislocated beyond the consensus guard) and a
+   * venue rejoining consensus. This is the dislocated-feed defense made audible
+   * — the fix for the "flaky host printed phantom arbs" episode.
+   */
+  noteFeedHealth(feeds: FeedStatus[]): void {
+    for (const f of feeds) {
+      const nowDislocated = f.dislocated === true;
+      const wasDislocated = this.dislocatedVenues.has(f.exchange);
+      if (nowDislocated && !wasDislocated) {
+        this.dislocatedVenues.add(f.exchange);
+        this.push("update", T.dislocated(cap(f.exchange), f.deviationBps ?? null), "warn");
+      } else if (!nowDislocated && wasDislocated) {
+        this.dislocatedVenues.delete(f.exchange);
+        this.push("update", T.rejoined(cap(f.exchange)), "info");
+      }
+    }
   }
 
   /* ── Narration triggers ──────────────────────────────────────────────── */
@@ -416,6 +439,18 @@ const T = {
   feedDown: (venue: string): Bilingual => ({
     es: `Se cayó el feed de ${venue}; dejo de considerar ese venue hasta que reconecte.`,
     en: `${venue}'s feed dropped; I'll stop considering that venue until it reconnects.`,
+  }),
+  dislocated: (venue: string, bps: number | null): Bilingual => {
+    const dev = bps != null ? ` (${bps} bps fuera del consenso)` : "";
+    const devEn = bps != null ? ` (${bps} bps off consensus)` : "";
+    return {
+      es: `Puse a ${venue} en cuarentena${dev}: su precio se dislocó del consenso multi-venue, así que lo excluyo del arbitraje para no operar un feed roto.`,
+      en: `Quarantined ${venue}${devEn}: its price dislocated from the multi-venue consensus, so I'm excluding it from arbitrage to avoid trading a broken feed.`,
+    };
+  },
+  rejoined: (venue: string): Bilingual => ({
+    es: `${venue} volvió al consenso; lo reincorporo al arbitraje.`,
+    en: `${venue} rejoined consensus; bringing it back into arbitrage.`,
   }),
   best: (o: Opportunity): Bilingual => ({
     es: `Mejor oportunidad accionable: comprar en ${cap(o.buyExchange)}, vender en ${cap(o.sellExchange)} · neto ${sUsd(o.netProfit)} · EV ${sUsd(o.expectedValueUsd)} · P(superv) ${pct(o.survivalProb)}.`,

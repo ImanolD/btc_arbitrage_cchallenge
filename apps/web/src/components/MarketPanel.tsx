@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { TopOfBook } from "@arb/shared";
+import type { FeedStatus, TopOfBook } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -13,12 +13,19 @@ import { Badge } from "@/components/ui/badge";
 import { InfoButton } from "@/components/InfoButton";
 import { num, titleCase, usd } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 interface Props {
   books: Record<string, TopOfBook>;
+  feeds?: FeedStatus[];
 }
 
-export function MarketPanel({ books }: Props) {
+export function MarketPanel({ books, feeds }: Props) {
+  const { t } = useLang();
+  const health = useMemo(
+    () => new Map((feeds ?? []).map((f) => [f.exchange, f])),
+    [feeds],
+  );
   const rows = useMemo(
     () =>
       Object.values(books).sort(
@@ -74,19 +81,38 @@ export function MarketPanel({ books }: Props) {
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((b) => (
-                <TableRow key={b.exchange}>
-                  <TableCell className="font-medium">{titleCase(b.exchange)}</TableCell>
-                  <TableCell>
-                    <Badge variant="muted">{b.quote}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-profit">{usd(b.bestBid, 0)}</TableCell>
-                  <TableCell className="text-right text-loss">{usd(b.bestAsk, 0)}</TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {usd(b.bestAsk - b.bestBid)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {rows.map((b) => {
+                const h = health.get(b.exchange);
+                const dislocated = h?.dislocated === true;
+                const devTitle =
+                  h?.deviationBps != null
+                    ? `${t("market.deviation")}: ${h.deviationBps} bps`
+                    : undefined;
+                return (
+                  <TableRow key={b.exchange} className={cn(dislocated && "opacity-60")}>
+                    <TableCell className="font-medium" title={devTitle}>
+                      <span className="flex items-center gap-1.5">
+                        <span className={cn(dislocated && "text-loss line-through decoration-loss/60")}>
+                          {titleCase(b.exchange)}
+                        </span>
+                        {dislocated && (
+                          <Badge variant="loss" title={devTitle}>
+                            {t("market.quarantined")}
+                          </Badge>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="muted">{b.quote}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-profit">{usd(b.bestBid, 0)}</TableCell>
+                    <TableCell className="text-right text-loss">{usd(b.bestAsk, 0)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {usd(b.bestAsk - b.bestBid)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

@@ -505,6 +505,21 @@ export interface FeedStatus {
   exchange: ExchangeId;
   status: ConnectionStatus;
   lastUpdate: number | null;
+  /**
+   * Deviation of this venue's mid from the cross-venue consensus (median), in
+   * basis points. `null` when consensus can't be formed (quorum < 3 fresh
+   * venues) or the venue has no usable book yet. The demo venue is intentionally
+   * dislocated and reports `null`.
+   */
+  deviationBps?: number | null;
+  /** True when the venue's latest quote is older than `maxQuoteAgeMs`. */
+  stale?: boolean;
+  /**
+   * True when the consensus guard has quarantined this venue — its mid is beyond
+   * `maxVenueDeviationPct` from consensus, so it's excluded from arbitrage until
+   * it rejoins. This is the "flaky-host / dislocated feed" defense made visible.
+   */
+  dislocated?: boolean;
 }
 
 /* ── Socket.IO event contracts ──────────────────────────────────────────── */
