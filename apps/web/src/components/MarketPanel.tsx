@@ -84,22 +84,29 @@ export function MarketPanel({ books, feeds }: Props) {
               {rows.map((b) => {
                 const h = health.get(b.exchange);
                 const dislocated = h?.dislocated === true;
+                const benched = h?.benched === true && !dislocated;
+                const downed = h?.downed === true;
+                const excluded = dislocated || benched || downed;
                 const devTitle =
                   h?.deviationBps != null
                     ? `${t("market.deviation")}: ${h.deviationBps} bps`
                     : undefined;
                 return (
-                  <TableRow key={b.exchange} className={cn(dislocated && "opacity-60")}>
+                  <TableRow key={b.exchange} className={cn(excluded && "opacity-60")}>
                     <TableCell className="font-medium" title={devTitle}>
                       <span className="flex items-center gap-1.5">
-                        <span className={cn(dislocated && "text-loss line-through decoration-loss/60")}>
+                        <span className={cn(excluded && "text-loss line-through decoration-loss/60")}>
                           {titleCase(b.exchange)}
                         </span>
-                        {dislocated && (
+                        {downed ? (
+                          <Badge variant="loss">{t("market.downed")}</Badge>
+                        ) : dislocated ? (
                           <Badge variant="loss" title={devTitle}>
                             {t("market.quarantined")}
                           </Badge>
-                        )}
+                        ) : benched ? (
+                          <Badge variant="loss">{t("market.benched")}</Badge>
+                        ) : null}
                       </span>
                     </TableCell>
                     <TableCell>

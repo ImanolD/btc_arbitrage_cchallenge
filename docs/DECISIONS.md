@@ -166,6 +166,73 @@ Formato: **Contexto → Decisión → Alternativa descartada → Consecuencia.**
 - **Consecuencia.** Una ventana de deploy inconsistente degrada con gracia en vez
   de romper por completo.
 
+## 11. Controles de riesgo automáticos: disyuntor por venue + kill-switch de sesión
+
+- **Contexto.** La guarda por trade (#1, #4, #9) decide *este* cruce, pero una
+  mesa real también necesita controles que **detengan o aíslen** la operación
+  cuando algo se rompe sistemáticamente — no seguir golpeando un venue que
+  rechaza todo, ni operar mientras la sesión sangra.
+- **Decisión.** Un `RiskGovernor` con dos controles independientes: (a) un
+  **disyuntor por venue** que cuenta rechazos de pata en una ventana móvil y, al
+  cruzar el umbral, **banquea** ese venue durante un cooldown antes de rearmarse
+  solo; (b) un **kill-switch de sesión** que, si el PnL realizado cae a
+  −`maxSessionLossUsd`, **detiene TODA ejecución** (la detección sigue) hasta el
+  reset. Ambos son live-tunables, se **ven** en el panel (badge por venue,
+  banner de HALT) y Filo narra las transiciones.
+- **Alternativa descartada.** Solo la guarda por trade. Reacciona cruce a cruce
+  pero nunca "se rinde" ante un patrón de fallos ni pone un piso a la pérdida —
+  justo lo que el comité subrayó en robustez.
+- **Consecuencia.** El disyuntor se dispara con el escenario de rechazo, así que
+  el juez lo puede **provocar y ver actuar**. Cubierto por `riskGovernor.test.ts`.
+
+## 12. "Tirar un exchange" como evento adverso (no como toggle de config)
+
+- **Contexto.** Apagar un venue desde "Exchanges activos" (#7) es una decisión de
+  *configuración*. Simular que un exchange **se cae** en medio de la operación es
+  un evento *adverso* distinto, y es lo que pidieron poder disparar.
+- **Decisión.** El inyector de escenarios gana `downedVenues`: al tirar un venue,
+  el motor **congela su feed** (deja de ingerir sus books). Su cotización
+  envejece, la guarda de quote obsoleta (#9) lo saca sola, cae del consenso y el
+  bot **enruta alrededor** — el sistema *detecta y maneja* la caída, no la
+  esconde. Se ve como "CAÍDO (forzado)" y Filo lo narra.
+- **Alternativa descartada.** Reusar el toggle de venue activo. Habría mezclado
+  "lo excluyo por decisión" con "se cayó y reaccioné", que es el punto a mostrar.
+- **Consecuencia.** Reutiliza las guardas existentes en vez de inventar un camino
+  nuevo: la caída se maneja con el mismo mecanismo honesto que ya defiende al bot.
+
+## 13. Modo de fee maker/taker: una perilla que mueve la lógica, no decorativa
+
+- **Contexto.** El comité advierte contra "parametrización de cartón". Exponer un
+  fee maker que no cambia nada sería exactamente eso.
+- **Decisión.** `feeMode` real: en `maker`, la pata **pasiva** (compra) asume
+  descansar como orden maker y paga el fee maker (menor/rebate); la pata activa
+  (venta) sigue cruzando como taker. El fee menor **cambia qué cruces superan el
+  umbral neto** y se ve en el feed (EXEC/SKIP) y en el PnL. Es honesto **solo**
+  con un escenario de rechazo activo, porque los fills maker no están
+  garantizados — y lo documentamos así.
+- **Alternativa descartada.** (a) Agregar un campo maker "informativo" que no
+  entra al cálculo (cartón). (b) Modelar maker sin riesgo de fill (deshonesto).
+- **Consecuencia.** La perilla altera de verdad una decisión; el arb sigue siendo
+  taker-taker por defecto (correcto para latencia). Cubierto por
+  `executionSimulator.test.ts` (maker ⇒ menos fees, más neto).
+
+## 14. Replay de mercado real (grabación) vs. solo demo sintético
+
+- **Contexto.** El modo demo inyecta dislocaciones **sintéticas**: perfecto para
+  ejercitar el camino de ejecución, pero no es mercado real. Frente al jurado,
+  cuando el mercado en vivo está tranquilo, conviene una demo **reproducible**
+  hecha de datos reales.
+- **Decisión.** Un `MarketRecorder` (ring buffer acotado) graba los ticks reales;
+  un `ReplayPlayer` los reproduce por el motor a **velocidad variable**,
+  reescribiendo los timestamps a "ahora" para que la guarda de quote obsoleta no
+  los rechace. Mientras el replay está activo, los feeds en vivo se **congelan**
+  (el tape maneja el motor), es **mutuamente excluyente** con demo y va con banner.
+- **Alternativa descartada.** Solo demo sintético. No permite reproducir una
+  ventana de mercado real ni controlar la velocidad para explicar un episodio.
+- **Consecuencia.** Demo reproducible cuando el mercado no coopera, sin mentir
+  sobre el origen del dato. Memoria acotada (buffer con tope), auto-stop al
+  quedarse sin clientes, igual que el demo.
+
 ---
 
 ## Verificación (tests + CI)
@@ -177,7 +244,12 @@ la **lógica pura** (sin red), en `apps/server/tests/`:
   cruzar un nivel no rentable, tope por nominal.
 - `executionSimulator.test.ts` — máquina de dos patas: ejecución normal a plano,
   pata rechazada → residual → vuelta a plano (BTC conservado), doble rechazo → sin
-  trade, haircut de liquidez.
+  trade, haircut de liquidez, y **modo maker** (fee menor en la pata pasiva ⇒
+  menos fees y más neto — la perilla mueve PnL real).
+- `riskGovernor.test.ts` — controles automáticos: el disyuntor por venue se
+  dispara tras N rechazos en la ventana y se rearma tras el cooldown; los
+  rechazos fuera de ventana no cuentan; `breakerRejects = 0` lo desactiva; el
+  kill-switch de sesión detiene/reanuda según el PnL realizado y `= 0` lo apaga.
 - `portfolio.test.ts` — (s,S): sin transferencia dentro de la banda, envío al
   objetivo al cruzar el techo, PnL/win-rate, capacidad acotada por USD/BTC, y el
   pronóstico de deriva (proyección tras warm-up, `null` antes).

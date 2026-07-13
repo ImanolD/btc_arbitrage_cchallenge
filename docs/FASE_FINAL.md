@@ -24,8 +24,10 @@ ajustar **umbrales, fees, tamaños de orden y exchanges activos**.
 Respuesta: sí, los cuatro — y bastante más — **desde la UI, en vivo, sin
 reiniciar**. El panel de **Parámetros** pasó de ~6 controles sueltos a un centro de
 parametrización **agrupado por sección**, encabezado por un contador de
-`N controles en vivo` (31 con la configuración por defecto de 8 venues; crece con
-cada venue añadido).
+`N controles en vivo` (**45** con la configuración por defecto de 8 venues; crece
+con cada venue añadido). Cada perilla lleva además una **nota de una línea de por
+qué existe y a qué afecta** — para demostrar criterio, no solo exponer una
+variable.
 
 Además, el panel dejó de ser un **modal que tapa el dashboard** y ahora es un
 **drawer lateral persistente**: en desktop se ancla a la derecha y el contenido se
@@ -43,10 +45,14 @@ el contador de controles en vivo.
 | **Estrategia** | Modo de decisión EV ↔ spread, ganancia neta mínima | reorganizado |
 | **Valor esperado (EV)** | `τ` de latencia, costo adverso, EV mínimo | reorganizado |
 | **Tamaño y capital** | Nominal máximo por pata (`maxNotionalUsd`) | ✅ **nuevo — lo piden explícito** |
-| **Riesgo y guardas** | Spread máximo (anti-glitch), antigüedad máxima de quote | ✅ **nuevo** |
+| **Riesgo y guardas** | Spread máximo (anti-glitch), antigüedad máxima de quote, desviación máx. vs consenso | ✅ **nuevo** |
+| **Límites de riesgo (automáticos)** | Disyuntor por venue (rechazos/ventana/cooldown) + kill-switch por pérdida de sesión | ✅ **nuevo — cierre última fase** |
+| **Modo de fee** | Pata pasiva taker ↔ maker (mueve qué cruces son rentables) | ✅ **nuevo — cierre última fase** |
 | **Rebalanceo** | Umbral de drift en BTC que dispara la transferencia on-chain | ✅ **nuevo** |
+| **Replay** | Velocidad de reproducción del mercado grabado | ✅ **nuevo — cierre última fase** |
 | **Fees por exchange** | Taker fee editable **por cada venue** | ✅ **nuevo — lo piden explícito** |
 | **Exchanges activos** | Toggle por venue: incluir/excluir del arbitraje (el feed sigue vivo) | ✅ **nuevo — lo piden explícito** |
+| **Escenarios adversos** | Rechazo de pata, crunch de liquidez, gap de precio, **tirar un exchange** | ✅ ampliado |
 | **Filo** | Cadencia del resumen, silenciar/activar narraciones | ya existía |
 
 ### Presets de estrategia
@@ -100,6 +106,85 @@ ver el comportamiento cambiar al instante:
 
 Todo lo anterior se propaga a cualquier otra pestaña abierta del dashboard al
 instante — es estado de servidor, no local.
+
+---
+
+## ✅ Enviado — Cierre de última fase: controles que DETIENEN/AÍSLAN, maker real y replay
+
+Con dos criterios subrayados por el jurado (parametrización profunda + robustez
+ante escenarios adversos), esta tanda cierra los huecos que faltaban para que la
+robustez no solo se describa sino que **se dispare y se vea actuar**, y para que
+cada perilla sea genuina (nada de "parametrización de cartón").
+
+### 1. Disyuntor por venue + kill-switch de sesión (controles automáticos)
+
+Un `RiskGovernor` nuevo (`apps/server/src/engine/riskGovernor.ts`) suma dos
+controles que una mesa real corre por encima de la guarda por trade:
+
+- **Disyuntor por venue.** Cuenta los **rechazos de pata** por venue en una
+  ventana móvil; al cruzar el umbral, **banquea** ese venue durante un cooldown y
+  luego se **rearma solo**. Mientras está banqueado, las rutas que lo tocan salen
+  como `SKIP` con el motivo *"circuit breaker: <venue> benched"* y el venue se
+  marca en la barra de estado y el panel de mercado (badge `DISYUNTOR`, tachado).
+- **Kill-switch de sesión.** Si el **PnL realizado** cae a −`maxSessionLossUsd`,
+  **detiene TODA la ejecución** (la detección sigue) hasta el reset — banner
+  `EJECUCIÓN DETENIDA` bien visible. Es el *breaker* de drawdown global.
+
+Ambos son **live-tunables** (umbral de rechazos, ventana, cooldown, límite de
+pérdida) y **Filo narra** cada transición (disparo, recuperación, halt, resume).
+Lo mejor: se **disparan con el escenario de rechazo**, así el juez los provoca y
+los ve actuar. Cubierto por `riskGovernor.test.ts`.
+
+### 2. "Tirar un exchange" como evento adverso
+
+El inyector de escenarios gana **toggles por venue para tirarlo abajo**. Al
+hacerlo, el motor **congela su feed**: su cotización envejece, la guarda de quote
+obsoleta lo saca sola, cae del consenso y el bot **enruta alrededor** — se ve
+como `CAÍDO (forzado)` y Filo lo narra. No es un toggle de configuración: es la
+caída *manejada* con las mismas guardas honestas que ya defienden al sistema.
+
+### 3. Modo de fee maker/taker (perilla que mueve la lógica)
+
+`feeMode` real: en **maker**, la pata pasiva (compra) asume descansar como orden
+maker y paga el fee maker (menor/rebate); la activa (venta) sigue taker. El fee
+menor **cambia qué cruces superan el umbral neto** — se ve en el feed y en el
+P&L. Honesto **solo** con un escenario de rechazo activo (los fills maker no están
+garantizados), y así lo dice la propia UI. El default sigue siendo taker-taker,
+que es lo correcto para un arbitraje sensible a latencia. Cubierto por
+`executionSimulator.test.ts`.
+
+### 4. Replay de mercado real (demo reproducible)
+
+Un `MarketRecorder` graba los ticks **reales** en un ring buffer acotado, y un
+`ReplayPlayer` los reproduce por el motor a **velocidad variable** (`0.5×–10×`),
+en bucle. Mientras el replay corre, los feeds en vivo se **congelan** (el tape
+maneja el motor), va con banner propio y es **mutuamente excluyente** con el demo
+sintético. Sirve para una demo **reproducible** frente al jurado cuando el mercado
+en vivo está tranquilo — sin mentir sobre el origen del dato. Se enciende desde
+la barra (o con la tecla `R`); la velocidad se ajusta en Parámetros.
+
+### 5. Cada parámetro cuenta su historia
+
+Cada control del drawer lleva ahora una **nota de una línea** de por qué existe y
+a qué afecta (ES/EN) — desde `τ` hasta el disyuntor — para demostrar criterio, no
+solo exponer variables.
+
+### Prueba de 90 segundos (robustez, para el jurado)
+
+1. En **Escenarios adversos**, sube **rechazo de pata** a ~40%: verás fills
+   parciales, residuales y vueltas a plano en el blotter (filtro *Residual /
+   partial*).
+2. Deja el rechazo alto: a los pocos rechazos, un venue **abre su disyuntor** —
+   aparece tachado con badge `DISYUNTOR` y Filo lo narra; tras el cooldown se
+   rearma solo.
+3. **Tira un exchange** (toggle de caída): se marca `CAÍDO`, sale del consenso y
+   el bot sigue operando el resto.
+4. Pon un **límite de pérdida de sesión** bajo y un gap de precio adverso: cuando
+   el P&L realizado cruza el piso, salta el banner `EJECUCIÓN DETENIDA` (kill-
+   switch) — la detección sigue, la ejecución no. Reinicia la sesión para reanudar.
+5. Cambia el **modo de fee** a maker y mira reaparecer cruces que antes quedaban en
+   `SKIP`.
+6. Enciende **Replay** y ajusta la velocidad: mercado real grabado, reproducible.
 
 ---
 

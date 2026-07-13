@@ -55,6 +55,7 @@ const initialState: ArbState = {
  */
 export interface ArbStream extends ArbState {
   setDemo: (enabled: boolean) => void;
+  setReplay: (enabled: boolean) => void;
   askFilo: (text: string, lang: FiloLang) => void;
   updateConfig: (patch: EngineConfigPatch) => void;
   resetSession: () => void;
@@ -68,6 +69,10 @@ export function useArbStream(): ArbStream {
 
   const setDemo = useCallback((enabled: boolean) => {
     socketRef.current?.emit("setDemo", enabled);
+  }, []);
+
+  const setReplay = useCallback((enabled: boolean) => {
+    socketRef.current?.emit("setReplay", enabled);
   }, []);
 
   const updateConfig = useCallback((patch: EngineConfigPatch) => {
@@ -177,7 +182,7 @@ export function useArbStream(): ArbStream {
     };
   }, []);
 
-  return { ...state, setDemo, askFilo, updateConfig, resetSession };
+  return { ...state, setDemo, setReplay, askFilo, updateConfig, resetSession };
 }
 
 export type { ExchangeId };

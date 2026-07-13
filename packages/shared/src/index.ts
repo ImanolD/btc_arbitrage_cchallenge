@@ -49,9 +49,29 @@ export interface TopOfBook {
 export interface FeeModel {
   /** Taker fee as a fraction, e.g. 0.001 = 0.1%. */
   takerFee: number;
+  /**
+   * Maker (post-only) fee as a fraction — usually below taker, sometimes a
+   * rebate (negative). Only charged in `maker` fee mode, which models resting
+   * the passive leg instead of crossing the spread on it. See `FeeMode`.
+   */
+  makerFee: number;
   /** Estimated BTC withdrawal fee (only used by the transfer model). */
   withdrawalFeeBtc: number;
 }
+
+/**
+ * Which side of the book we assume our orders take, per leg — a real cost/risk
+ * trade-off, not a cosmetic toggle:
+ * - `taker` (default): both legs cross the spread and pay the taker fee. Certain
+ *   fill, higher cost. Correct for a latency-sensitive arbitrage that must grab
+ *   the edge before it evaporates.
+ * - `maker`: the passive (buy) leg is assumed to rest as a maker order, paying
+ *   the (lower/rebate) maker fee. Cheaper, so MORE crosses clear the net-profit
+ *   bar — but maker fills are not guaranteed, so this is honest only when paired
+ *   with a non-zero reject scenario (models the passive leg missing). The active
+ *   (sell) leg still crosses as a taker.
+ */
+export type FeeMode = "taker" | "maker";
 
 /**
  * A detected arbitrage opportunity: buy on `buyExchange` (at its ask),
@@ -266,6 +286,8 @@ export interface PortfolioStats {
   equityCurve: EquityPoint[];
   /** Inventory-rebalancing accounting (amortized withdrawal-fee model). */
   rebalancing: RebalancingStats;
+  /** Live circuit-breaker / loss-limit state (halted? which venues benched?). */
+  riskState: RiskState;
 }
 
 /**
@@ -328,6 +350,48 @@ export interface ScenarioConfig {
   liquidityHaircutPct: number;
   /** Adverse price move (bps) applied mid-execution (buy up / sell down). */
   priceGapBps: number;
+  /**
+   * Venues force-"downed" by the judge to simulate an exchange going dark: the
+   * engine freezes their feed (stops ingesting new books), so they age out, the
+   * stale-quote guard stops trading them, and the dashboard shows them down —
+   * the "tirar un exchange" adverse event. Empty = all venues live.
+   */
+  downedVenues: ExchangeId[];
+}
+
+/**
+ * Runtime risk limits — automated controls that HALT or BENCH trading when
+ * things go wrong, on top of the per-trade risk gate. These are the "circuit
+ * breaker + exposure limits" a real desk runs, and they're triggerable live via
+ * the adverse-scenario injector so a judge can watch them act.
+ */
+export interface RiskLimitsConfig {
+  /**
+   * Per-venue circuit breaker: number of leg rejections on a single venue,
+   * within `breakerWindowMs`, that trips it — benching that venue from
+   * execution for `breakerCooldownMs` before it auto-recovers. 0 disables.
+   */
+  breakerRejects: number;
+  /** Rolling window (ms) over which a venue's rejections are counted. */
+  breakerWindowMs: number;
+  /** How long a tripped venue stays benched before auto-recovery (ms). */
+  breakerCooldownMs: number;
+  /**
+   * Session loss limit (kill-switch): when realized P&L falls to or below
+   * −`maxSessionLossUsd`, ALL execution halts (detection keeps running) until
+   * the session is reset. 0 disables. The global drawdown breaker.
+   */
+  maxSessionLossUsd: number;
+}
+
+/** Live runtime state of the risk governor, surfaced for the dashboard. */
+export interface RiskState {
+  /** True when the session loss limit tripped and execution is halted. */
+  halted: boolean;
+  /** Why trading is halted (human-readable), when `halted`. */
+  haltReason?: string;
+  /** Venues currently benched by the per-venue circuit breaker. */
+  benched: ExchangeId[];
 }
 
 /** Tunable Filo (chat copilot) behaviour, echoed to the dashboard. */
@@ -367,15 +431,29 @@ export interface EngineConfig {
   filo: FiloConfig;
   /** Inventory drift (BTC) a venue may accumulate before an on-chain rebalance. */
   rebalanceThresholdBtc: number;
-  /** Per-exchange trading-cost schedule (taker + withdrawal), live-tunable. */
+  /** Per-exchange trading-cost schedule (taker/maker + withdrawal), live-tunable. */
   fees: Record<ExchangeId, FeeModel>;
+  /** Whether the passive leg is assumed taker (default) or maker (see `FeeMode`). */
+  feeMode: FeeMode;
   /**
    * Venues currently EXCLUDED from cross-exchange comparison (their feeds keep
    * streaming, but no opportunity/trade will involve them). Empty = all active.
    */
   disabledExchanges: ExchangeId[];
-  /** Adverse-scenario injector state (all zero = inactive). */
+  /** Adverse-scenario injector state (all zero/empty = inactive). */
   scenario: ScenarioConfig;
+  /** Automated circuit-breaker / loss-limit controls. */
+  riskLimits: RiskLimitsConfig;
+  /**
+   * Whether the market REPLAY injector is active. Replay streams a recorded
+   * window of REAL market data (captured live) back through the engine at
+   * `replaySpeed`, giving a reproducible, judge-controllable demo when the live
+   * market is quiet. Clearly labeled, like demo mode. Mutually exclusive with
+   * demo mode.
+   */
+  replayMode: boolean;
+  /** Replay playback rate multiplier (e.g. 1 = real time, 4 = 4×). */
+  replaySpeed: number;
 }
 
 /**
@@ -397,12 +475,18 @@ export interface EngineConfigPatch {
   maxVenueDeviationPct?: number;
   /** Inventory drift (BTC) that triggers an on-chain rebalance. */
   rebalanceThresholdBtc?: number;
-  /** Partial per-exchange fee overrides (taker fraction / withdrawal BTC). */
+  /** Partial per-exchange fee overrides (taker/maker fraction / withdrawal BTC). */
   fees?: Partial<Record<ExchangeId, Partial<FeeModel>>>;
+  /** Assume the passive leg is taker or maker. */
+  feeMode?: FeeMode;
   /** Full replacement list of venues excluded from comparison. */
   disabledExchanges?: ExchangeId[];
   /** Adverse-scenario injector overrides (partial). */
   scenario?: Partial<ScenarioConfig>;
+  /** Circuit-breaker / loss-limit overrides (partial). */
+  riskLimits?: Partial<RiskLimitsConfig>;
+  /** Replay playback rate multiplier (live-tunable while replaying). */
+  replaySpeed?: number;
 }
 
 /** Parameters of the transparent expected-value / survival-probability model. */
@@ -520,6 +604,16 @@ export interface FeedStatus {
    * it rejoins. This is the "flaky-host / dislocated feed" defense made visible.
    */
   dislocated?: boolean;
+  /**
+   * True when this venue is benched by the per-venue circuit breaker (too many
+   * leg rejections in the window) — excluded from execution until cooldown.
+   */
+  benched?: boolean;
+  /**
+   * True when the venue was force-"downed" via the adverse-scenario injector
+   * (its feed is frozen to simulate an exchange going dark).
+   */
+  downed?: boolean;
 }
 
 /* ── Socket.IO event contracts ──────────────────────────────────────────── */
@@ -543,8 +637,10 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   /** Ask the server to replay current state on connect. */
   sync: () => void;
-  /** Toggle the clearly-labeled demo/replay injector on or off. */
+  /** Toggle the clearly-labeled synthetic demo injector on or off. */
   setDemo: (enabled: boolean) => void;
+  /** Toggle the market REPLAY injector (recorded real data) on or off. */
+  setReplay: (enabled: boolean) => void;
   /** Ask Filo a free-form question; the answer comes back as a `filo` event. */
   filoAsk: (payload: { id: string; text: string; lang: FiloLang }) => void;
   /** Live-tune engine + Filo settings; server echoes the new `config`. */

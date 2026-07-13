@@ -28,8 +28,17 @@ export function makeConfig(over: Partial<EngineConfig> = {}): EngineConfig {
     filo: { digestMs: 0, narrate: false },
     rebalanceThresholdBtc: 0.5,
     fees: structuredClone(feeModels),
+    feeMode: "taker",
     disabledExchanges: [],
-    scenario: { rejectProb: 0, liquidityHaircutPct: 0, priceGapBps: 0 },
+    scenario: { rejectProb: 0, liquidityHaircutPct: 0, priceGapBps: 0, downedVenues: [] },
+    riskLimits: {
+      breakerRejects: 3,
+      breakerWindowMs: 10_000,
+      breakerCooldownMs: 15_000,
+      maxSessionLossUsd: 0,
+    },
+    replayMode: false,
+    replaySpeed: 4,
     ...over,
   };
 }

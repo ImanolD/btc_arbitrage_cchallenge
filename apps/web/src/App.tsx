@@ -13,6 +13,8 @@ import { LatencyPanel } from "@/components/LatencyPanel";
 import { TriangularPanel } from "@/components/TriangularPanel";
 import { DemoBanner } from "@/components/DemoBanner";
 import { AdverseScenarioBanner } from "@/components/AdverseScenarioBanner";
+import { ReplayBanner } from "@/components/ReplayBanner";
+import { HaltBanner } from "@/components/HaltBanner";
 import { GuideOverlay } from "@/components/GuideOverlay";
 import { StatsPanel } from "@/components/StatsPanel";
 import { SettingsPanel } from "@/components/SettingsPanel";
@@ -28,7 +30,13 @@ const GUIDE_SEEN_KEY = "arb_guide_seen";
 /** True when any adverse-scenario injector knob is dialed above zero. */
 function scenarioActive(config: EngineConfig | null): boolean {
   const s = config?.scenario;
-  return !!s && (s.rejectProb > 0 || s.liquidityHaircutPct > 0 || s.priceGapBps > 0);
+  return (
+    !!s &&
+    (s.rejectProb > 0 ||
+      s.liquidityHaircutPct > 0 ||
+      s.priceGapBps > 0 ||
+      s.downedVenues.length > 0)
+  );
 }
 
 export default function App() {
@@ -72,6 +80,10 @@ export default function App() {
         case "D":
           state.setDemo(!(state.config?.demoMode ?? false));
           break;
+        case "r":
+        case "R":
+          state.setReplay(!(state.config?.replayMode ?? false));
+          break;
         case "p":
         case "P":
           setSettingsOpen((v) => !v);
@@ -93,7 +105,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [entered, state.setDemo, state.config?.demoMode]);
+  }, [entered, state.setDemo, state.setReplay, state.config?.demoMode, state.config?.replayMode]);
 
   return (
     <div
@@ -145,13 +157,16 @@ export default function App() {
         feeds={state.feeds}
         latency={state.latency}
         onToggleDemo={state.setDemo}
+        onToggleReplay={state.setReplay}
         onOpenGuide={() => setGuideOpen(true)}
         onStartTour={launchTour}
         onOpenStats={() => setStatsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       {state.config?.demoMode && <DemoBanner />}
+      {state.config?.replayMode && <ReplayBanner />}
       {scenarioActive(state.config) && <AdverseScenarioBanner />}
+      {state.portfolio?.riskState?.halted && <HaltBanner />}
 
       <main className="flex flex-1 flex-col gap-3 p-3">
         <HeroInsight stats={state.stats} />

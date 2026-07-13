@@ -5,6 +5,7 @@ import {
   FlaskConical,
   Github,
   HelpCircle,
+  History,
   Menu,
   Radio,
   Route,
@@ -25,6 +26,7 @@ interface Props {
   feeds: FeedStatus[];
   latency: LatencyStats | null;
   onToggleDemo: (enabled: boolean) => void;
+  onToggleReplay: (enabled: boolean) => void;
   onOpenGuide: () => void;
   onStartTour: () => void;
   onOpenStats: () => void;
@@ -37,6 +39,7 @@ export function StatusBar({
   feeds,
   latency,
   onToggleDemo,
+  onToggleReplay,
   onOpenGuide,
   onStartTour,
   onOpenStats,
@@ -45,9 +48,10 @@ export function StatusBar({
   const { lang, setLang, t } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const demoOn = config?.demoMode ?? false;
+  const replayOn = config?.replayMode ?? false;
   const modeLabel = config ? (config.decisionMode === "ev" ? "EV" : "Spread") : null;
-  // Live-tunable control count (mirrors SettingsPanel: 15 base + 2 per venue).
-  const controlCount = config ? 15 + config.exchanges.length * 2 : null;
+  // Live-tunable control count (mirrors SettingsPanel: 21 base + 3 per venue).
+  const controlCount = config ? 21 + config.exchanges.length * 3 : null;
   const close = () => setMenuOpen(false);
 
   // Ticking uptime for the "live since" pill (once a minute is plenty).
@@ -142,7 +146,14 @@ export function StatusBar({
           label={`Demo ${demoOn ? "ON" : "OFF"}`}
           active={demoOn}
           onClick={() => onToggleDemo(!demoOn)}
-          title="Toggle the clearly-labeled synthetic demo/replay injector"
+          title="Toggle the clearly-labeled synthetic demo injector"
+        />
+        <NavButton
+          icon={<History className="h-3.5 w-3.5" />}
+          label={`Replay ${replayOn ? "ON" : "OFF"}`}
+          active={replayOn}
+          onClick={() => onToggleReplay(!replayOn)}
+          title={t("nav.replay")}
         />
         <button
           id="tour-settings"
@@ -248,6 +259,21 @@ export function StatusBar({
                 }
               />
               <MenuRow
+                icon={<History className="h-4 w-4" />}
+                label="Replay"
+                onClick={() => onToggleReplay(!replayOn)}
+                trailing={
+                  <span
+                    className={cn(
+                      "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                      replayOn ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {replayOn ? "ON" : "OFF"}
+                  </span>
+                }
+              />
+              <MenuRow
                 icon={<SlidersHorizontal className="h-4 w-4" />}
                 label={t("nav.params")}
                 onClick={() => {
@@ -338,28 +364,40 @@ export function StatusBar({
 function FeedDot({ feed }: { feed: FeedStatus }) {
   const { t } = useLang();
   const connected = feed.status === "connected";
+  // Adverse "downed" venues are force-disconnected; the circuit breaker benches a
+  // still-connected venue. Precedence: downed → dislocated → benched → stale.
+  const downed = feed.downed === true;
   const dislocated = connected && feed.dislocated === true;
-  const stale = connected && feed.stale === true && !dislocated;
+  const benched = connected && feed.benched === true && !dislocated;
+  const stale = connected && feed.stale === true && !dislocated && !benched;
+  // Struck through whenever the venue is out of arbitrage for any reason.
+  const excluded = downed || dislocated || benched;
 
-  const dotClass = !connected
-    ? feed.status === "connecting"
-      ? "text-warn"
-      : "text-loss"
-    : dislocated
-      ? "text-loss"
-      : stale
+  const dotClass = downed
+    ? "text-loss"
+    : !connected
+      ? feed.status === "connecting"
         ? "text-warn"
-        : "text-profit";
+        : "text-loss"
+      : dislocated || benched
+        ? "text-loss"
+        : stale
+          ? "text-warn"
+          : "text-profit";
 
-  const statusText = !connected
-    ? feed.status === "connecting"
-      ? t("feed.connecting")
-      : t("feed.down")
-    : dislocated
-      ? t("feed.dislocated")
-      : stale
-        ? t("feed.stale")
-        : t("feed.healthy");
+  const statusText = downed
+    ? t("feed.downed")
+    : !connected
+      ? feed.status === "connecting"
+        ? t("feed.connecting")
+        : t("feed.down")
+      : dislocated
+        ? t("feed.dislocated")
+        : benched
+          ? t("feed.benched")
+          : stale
+            ? t("feed.stale")
+            : t("feed.healthy");
 
   const dev = feed.deviationBps != null ? ` · ${feed.deviationBps} bps` : "";
 
@@ -368,13 +406,17 @@ function FeedDot({ feed }: { feed: FeedStatus }) {
       className="flex items-center gap-1.5"
       title={`${titleCase(feed.exchange)}: ${statusText}${dev}`}
     >
-      <Radio className={cn("h-3.5 w-3.5", dotClass, dislocated && "animate-pulse")} />
+      <Radio
+        className={cn(
+          "h-3.5 w-3.5",
+          dotClass,
+          (dislocated || benched) && "animate-pulse",
+        )}
+      />
       <span
         className={cn(
           "text-[11px]",
-          dislocated
-            ? "text-loss line-through decoration-loss/60"
-            : "text-muted-foreground",
+          excluded ? "text-loss line-through decoration-loss/60" : "text-muted-foreground",
         )}
       >
         {titleCase(feed.exchange)}

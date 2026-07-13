@@ -17,6 +17,7 @@ interface Props {
 /** Server-side defaults (mirrors apps/server/src/config.ts) for the reset button. */
 const DEFAULTS: EngineConfigPatch = {
   decisionMode: "ev",
+  feeMode: "taker",
   minNetProfitUsd: 1,
   ev: { tauMs: 400, adverseBps: 5, minEvUsd: 0 },
   filo: { digestMs: 75_000, narrate: true },
@@ -25,6 +26,12 @@ const DEFAULTS: EngineConfigPatch = {
   maxQuoteAgeMs: 2_000,
   maxVenueDeviationPct: 0.01,
   rebalanceThresholdBtc: 0.5,
+  riskLimits: {
+    breakerRejects: 3,
+    breakerWindowMs: 10_000,
+    breakerCooldownMs: 15_000,
+    maxSessionLossUsd: 0,
+  },
   disabledExchanges: [],
 };
 
@@ -154,9 +161,11 @@ function Body({
 }) {
   const { t } = useLang();
   const evMode = config.decisionMode === "ev";
-  // Live control count = decisionMode + minNet + 3 EV + 2 Filo + size
-  // + 3 guards + rebalance + 3 adverse-scenario + (taker fee + on/off) per venue.
-  const controlCount = 15 + config.exchanges.length * 2;
+  const makerMode = config.feeMode === "maker";
+  // Live control count. Base (non-venue) = decisionMode + feeMode + minNet + 3 EV
+  // + 2 Filo + size + 3 guards + rebalance + 4 risk-limits + replaySpeed
+  // + 3 adverse-scenario = 21. Per venue = taker fee + active + downed = 3.
+  const controlCount = 21 + config.exchanges.length * 3;
 
   return (
     <div className="space-y-6">
@@ -207,6 +216,7 @@ function Body({
         max={50}
         step={0.5}
         format={(v) => `$${v}`}
+        hint={t("hint.minNet")}
         onChange={(v) => onUpdate({ minNetProfitUsd: v })}
       />
 
@@ -223,6 +233,7 @@ function Body({
           max={2000}
           step={50}
           format={(v) => `${v} ms`}
+          hint={t("hint.tau")}
           disabled={!evMode}
           onChange={(v) => onUpdate({ ev: { tauMs: v } })}
         />
@@ -233,6 +244,7 @@ function Body({
           max={50}
           step={1}
           format={(v) => `${v} bps`}
+          hint={t("hint.adverse")}
           disabled={!evMode}
           onChange={(v) => onUpdate({ ev: { adverseBps: v } })}
         />
@@ -243,6 +255,7 @@ function Body({
           max={50}
           step={1}
           format={(v) => `$${v}`}
+          hint={t("hint.minEv")}
           disabled={!evMode}
           onChange={(v) => onUpdate({ ev: { minEvUsd: v } })}
         />
@@ -257,6 +270,7 @@ function Body({
           max={200_000}
           step={1_000}
           format={(v) => `$${v.toLocaleString("en-US")}`}
+          hint={t("hint.maxNotional")}
           onChange={(v) => onUpdate({ maxNotionalUsd: v })}
         />
       </Section>
@@ -270,6 +284,7 @@ function Body({
           max={20}
           step={0.5}
           format={(v) => `${v}%`}
+          hint={t("hint.maxSpread")}
           onChange={(v) => onUpdate({ maxSaneSpreadPct: v / 100 })}
         />
         <Slider
@@ -279,6 +294,7 @@ function Body({
           max={10_000}
           step={100}
           format={(v) => `${v} ms`}
+          hint={t("hint.maxAge")}
           onChange={(v) => onUpdate({ maxQuoteAgeMs: v })}
         />
         <Slider
@@ -288,7 +304,52 @@ function Body({
           max={5}
           step={0.1}
           format={(v) => (v === 0 ? "off" : `${v}%`)}
+          hint={t("hint.maxDeviation")}
           onChange={(v) => onUpdate({ maxVenueDeviationPct: v / 100 })}
+        />
+      </Section>
+
+      {/* Automated risk limits: circuit breaker + loss-limit kill-switch */}
+      <Section title={t("settings.riskLimits")} hint={t("settings.riskLimits.help")}>
+        <Slider
+          label={t("settings.breakerRejects")}
+          value={config.riskLimits.breakerRejects}
+          min={0}
+          max={20}
+          step={1}
+          format={(v) => (v === 0 ? "off" : `${v}`)}
+          hint={t("hint.breakerRejects")}
+          onChange={(v) => onUpdate({ riskLimits: { breakerRejects: v } })}
+        />
+        <Slider
+          label={t("settings.breakerWindow")}
+          value={Math.round(config.riskLimits.breakerWindowMs / 1000)}
+          min={1}
+          max={120}
+          step={1}
+          format={(v) => `${v}s`}
+          hint={t("hint.breakerWindow")}
+          onChange={(v) => onUpdate({ riskLimits: { breakerWindowMs: v * 1000 } })}
+        />
+        <Slider
+          label={t("settings.breakerCooldown")}
+          value={Math.round(config.riskLimits.breakerCooldownMs / 1000)}
+          min={1}
+          max={120}
+          step={1}
+          format={(v) => `${v}s`}
+          hint={t("hint.breakerCooldown")}
+          onChange={(v) => onUpdate({ riskLimits: { breakerCooldownMs: v * 1000 } })}
+        />
+        <Slider
+          label={t("settings.sessionLoss")}
+          value={config.riskLimits.maxSessionLossUsd}
+          min={0}
+          max={5_000}
+          step={50}
+          format={(v) => (v === 0 ? "off" : `$${v.toLocaleString("en-US")}`)}
+          hint={t("hint.sessionLoss")}
+          onChange={(v) => onUpdate({ riskLimits: { maxSessionLossUsd: v } })}
         />
       </Section>
 
@@ -301,8 +362,42 @@ function Body({
           max={5}
           step={0.05}
           format={(v) => `${v.toFixed(2)} BTC`}
+          hint={t("hint.rebalance")}
           onChange={(v) => onUpdate({ rebalanceThresholdBtc: v })}
         />
+      </Section>
+
+      {/* Replay playback speed (replay toggled from the top bar) */}
+      <Section title={t("settings.replay")} hint={t("settings.replay.help")}>
+        <Slider
+          label={t("settings.replaySpeed")}
+          value={config.replaySpeed}
+          min={0.5}
+          max={10}
+          step={0.5}
+          format={(v) => `${v}×`}
+          hint={t("hint.replaySpeed")}
+          onChange={(v) => onUpdate({ replaySpeed: v })}
+        />
+      </Section>
+
+      {/* Fee mode: assume the passive leg is taker (default) or maker */}
+      <Section title={t("settings.feeMode")}>
+        <div className="grid grid-cols-2 gap-2">
+          <ModeButton
+            active={!makerMode}
+            label={t("settings.feeMode.taker")}
+            onClick={() => onUpdate({ feeMode: "taker" })}
+          />
+          <ModeButton
+            active={makerMode}
+            label={t("settings.feeMode.maker")}
+            onClick={() => onUpdate({ feeMode: "maker" })}
+          />
+        </div>
+        <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+          {makerMode ? t("settings.feeMode.help.maker") : t("settings.feeMode.help.taker")}
+        </p>
       </Section>
 
       {/* Per-exchange taker fees */}
@@ -392,6 +487,7 @@ function Body({
             max={100}
             step={5}
             format={(v) => `${v}%`}
+            hint={t("hint.scenario.reject")}
             onChange={(v) => onUpdate({ scenario: { rejectProb: v / 100 } })}
           />
           <Slider
@@ -401,6 +497,7 @@ function Body({
             max={90}
             step={5}
             format={(v) => `−${v}%`}
+            hint={t("hint.scenario.liquidity")}
             onChange={(v) => onUpdate({ scenario: { liquidityHaircutPct: v / 100 } })}
           />
           <Slider
@@ -410,13 +507,63 @@ function Body({
             max={200}
             step={5}
             format={(v) => `${v} bps`}
+            hint={t("hint.scenario.gap")}
             onChange={(v) => onUpdate({ scenario: { priceGapBps: v } })}
           />
         </div>
+
+        {/* "Kill an exchange": force venues dark to watch the bot route around. */}
+        <div className="mt-3 border-t border-warn/20 pt-3">
+          <div className="mb-1 text-sm font-medium text-warn/90">
+            {t("settings.scenario.down")}
+          </div>
+          <p className="mb-2 text-[11px] leading-snug text-muted-foreground/70">
+            {t("settings.scenario.down.help")}
+          </p>
+          <div className="space-y-1">
+            {config.exchanges
+              .filter((ex) => ex !== "demo")
+              .map((ex) => {
+                const downed = config.scenario.downedVenues.includes(ex);
+                return (
+                  <div key={ex} className="flex items-center justify-between py-0.5">
+                    <span
+                      className={cn(
+                        "text-sm capitalize",
+                        downed ? "text-loss line-through decoration-loss/60" : "text-muted-foreground",
+                      )}
+                    >
+                      {ex}
+                    </span>
+                    <Toggle
+                      on={downed}
+                      onChange={(on) =>
+                        onUpdate({
+                          scenario: {
+                            downedVenues: on
+                              ? [...config.scenario.downedVenues, ex]
+                              : config.scenario.downedVenues.filter((e) => e !== ex),
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+
         <button
           type="button"
           onClick={() =>
-            onUpdate({ scenario: { rejectProb: 0, liquidityHaircutPct: 0, priceGapBps: 0 } })
+            onUpdate({
+              scenario: {
+                rejectProb: 0,
+                liquidityHaircutPct: 0,
+                priceGapBps: 0,
+                downedVenues: [],
+              },
+            })
           }
           className="mt-3 flex items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
         >
@@ -535,6 +682,7 @@ function Slider({
   max,
   step,
   format,
+  hint,
   disabled,
   onChange,
 }: {
@@ -544,6 +692,8 @@ function Slider({
   max: number;
   step: number;
   format: (v: number) => string;
+  /** One-line "why this knob exists / what it affects" — proves depth, not decoration. */
+  hint?: string;
   disabled?: boolean;
   onChange: (v: number) => void;
 }) {
@@ -571,6 +721,9 @@ function Slider({
         }}
         className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary disabled:cursor-not-allowed"
       />
+      {hint && (
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground/70">{hint}</p>
+      )}
     </div>
   );
 }

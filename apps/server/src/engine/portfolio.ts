@@ -219,6 +219,11 @@ export class Portfolio {
     if (actionable) this.actionableOpportunities += 1;
   }
 
+  /** Session realized P&L (USD), including amortized rebalancing costs. */
+  realizedPnlUsd(): number {
+    return this.realizedPnl;
+  }
+
   private equity(referencePrice: number): number {
     let total = 0;
     for (const w of this.wallets.values()) total += w.usd + w.btc * referencePrice;
@@ -309,6 +314,9 @@ export class Portfolio {
         bandBtc: round8(this.config.rebalanceThresholdBtc),
         recentEvents: this.recentRebalances,
       },
+      // Default; the engine overwrites this with the live RiskGovernor snapshot
+      // (the portfolio itself doesn't own the circuit-breaker/halt state).
+      riskState: { halted: false, benched: [] },
     };
   }
 }

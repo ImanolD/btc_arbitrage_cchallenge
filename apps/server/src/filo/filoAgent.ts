@@ -52,6 +52,12 @@ export class FiloAgent extends EventEmitter {
   private scenarioActive = false;
   /** Venues currently quarantined by the consensus guard (for enter↔clear narration). */
   private dislocatedVenues = new Set<ExchangeId>();
+  /** Venues currently benched by the circuit breaker (for trip↔recover narration). */
+  private benchedVenues = new Set<ExchangeId>();
+  /** Venues currently force-downed via the injector (for down↔restore narration). */
+  private downedVenues = new Set<ExchangeId>();
+  /** Last-announced global loss-limit halt state (for halt↔resume narration). */
+  private haltedNow = false;
 
   constructor(private readonly config: EngineConfig) {
     super();
@@ -146,7 +152,45 @@ export class FiloAgent extends EventEmitter {
         this.dislocatedVenues.delete(f.exchange);
         this.push("update", T.rejoined(cap(f.exchange)), "info");
       }
+
+      // Circuit breaker: narrate a venue getting benched (too many rejects) and
+      // auto-recovering after cooldown.
+      const nowBenched = f.benched === true;
+      const wasBenched = this.benchedVenues.has(f.exchange);
+      if (nowBenched && !wasBenched) {
+        this.benchedVenues.add(f.exchange);
+        this.push("update", T.benched(cap(f.exchange)), "warn");
+      } else if (!nowBenched && wasBenched) {
+        this.benchedVenues.delete(f.exchange);
+        this.push("update", T.recovered(cap(f.exchange)), "info");
+      }
+
+      // "Kill a venue" adverse event: narrate a forced down and its restore.
+      const nowDowned = f.downed === true;
+      const wasDowned = this.downedVenues.has(f.exchange);
+      if (nowDowned && !wasDowned) {
+        this.downedVenues.add(f.exchange);
+        this.push("update", T.downed(cap(f.exchange)), "warn");
+      } else if (!nowDowned && wasDowned) {
+        this.downedVenues.delete(f.exchange);
+        this.push("update", T.restored(cap(f.exchange)), "info");
+      }
     }
+  }
+
+  /**
+   * Global loss-limit kill-switch transition (server calls this from the
+   * portfolio stream). Narrate halt↔resume so the drawdown breaker is audible.
+   */
+  noteRiskState(risk: PortfolioStats["riskState"]): void {
+    if (risk.halted === this.haltedNow) return;
+    this.haltedNow = risk.halted;
+    this.push("update", risk.halted ? T.halted(risk.haltReason) : T.resumed, risk.halted ? "bad" : "good");
+  }
+
+  /** Market-replay injector toggled (recorded real data). */
+  noteReplay(enabled: boolean, tickCount: number): void {
+    this.push("update", enabled ? T.replayOn(tickCount) : T.replayOff, enabled ? "warn" : "info");
   }
 
   /* ── Narration triggers ──────────────────────────────────────────────── */
@@ -452,6 +496,41 @@ const T = {
     es: `${venue} volvió al consenso; lo reincorporo al arbitraje.`,
     en: `${venue} rejoined consensus; bringing it back into arbitrage.`,
   }),
+  benched: (venue: string): Bilingual => ({
+    es: `Disyuntor abierto en ${venue}: demasiados rechazos seguidos, así que lo saco de ejecución durante el cooldown en vez de seguir golpeándolo. Se reincorpora solo. 🐾`,
+    en: `Circuit breaker tripped on ${venue}: too many rejects in a row, so I'm benching it for the cooldown instead of hammering it. It re-arms on its own. 🐾`,
+  }),
+  recovered: (venue: string): Bilingual => ({
+    es: `${venue} salió del cooldown; el disyuntor se rearmó y vuelve a ejecutar.`,
+    en: `${venue} cleared its cooldown; the breaker re-armed and it's executing again.`,
+  }),
+  downed: (venue: string): Bilingual => ({
+    es: `Tiraron ${venue} (evento adverso): congelo su feed y enruto alrededor. La guardia de cotización rancia lo saca solo — mira cómo sigo operando el resto. 🐾`,
+    en: `${venue} was taken down (adverse event): I'm freezing its feed and routing around it. The stale-quote guard drops it automatically — watch me keep trading the rest. 🐾`,
+  }),
+  restored: (venue: string): Bilingual => ({
+    es: `${venue} volvió a estar en línea; lo reincorporo en cuanto llegue una cotización fresca.`,
+    en: `${venue} is back online; I'll fold it back in as soon as a fresh quote lands.`,
+  }),
+  halted: (reason?: string): Bilingual => {
+    const why = reason ? ` (${reason})` : "";
+    return {
+      es: `🛑 Kill-switch: alcancé el límite de pérdida de sesión${why}. Detengo TODA ejecución (sigo detectando) hasta que reinicies la sesión. Así se comporta un desk cuando algo se rompe.`,
+      en: `🛑 Kill-switch: hit the session loss limit${why}. I'm halting ALL execution (still detecting) until you reset the session. This is how a desk behaves when something breaks.`,
+    };
+  },
+  resumed: {
+    es: "Kill-switch liberado: el P&L realizado volvió por encima del límite, reanudo la ejecución. 🐾",
+    en: "Kill-switch cleared: realized P&L recovered above the limit, resuming execution. 🐾",
+  } as Bilingual,
+  replayOn: (ticks: number): Bilingual => ({
+    es: `Replay ACTIVO ▶️ Reproduzco ${fmt(ticks)} ticks de mercado REAL grabado (a velocidad variable) para una demo reproducible. Congelo los feeds en vivo mientras tanto — claramente etiquetado. 🐾`,
+    en: `Replay ON ▶️ Streaming ${fmt(ticks)} ticks of recorded REAL market data (variable speed) for a reproducible demo. Live feeds are frozen meanwhile — clearly labeled. 🐾`,
+  }),
+  replayOff: {
+    es: "Replay desactivado. Vuelvo a los feeds en vivo. 🐾",
+    en: "Replay off. Back to live feeds. 🐾",
+  } as Bilingual,
   best: (o: Opportunity): Bilingual => ({
     es: `Mejor oportunidad accionable: comprar en ${cap(o.buyExchange)}, vender en ${cap(o.sellExchange)} · neto ${sUsd(o.netProfit)} · EV ${sUsd(o.expectedValueUsd)} · P(superv) ${pct(o.survivalProb)}.`,
     en: `Best actionable opportunity: buy on ${cap(o.buyExchange)}, sell on ${cap(o.sellExchange)} · net ${sUsd(o.netProfit)} · EV ${sUsd(o.expectedValueUsd)} · P(surv) ${pct(o.survivalProb)}.`,

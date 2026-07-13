@@ -70,6 +70,24 @@ describe("ExecutionSimulator — two-leg state machine", () => {
     expect(trade).toBeNull();
   });
 
+  test("maker fee mode charges the lower maker fee on the buy leg (real, not cosmetic)", () => {
+    // Buy on Kraken (taker 0.26% vs maker 0.16%), sell on Binance (taker 0.10%).
+    const buyBook = makeBook("kraken", 99_990, 100_000);
+    const sellBook = makeBook("binance", 100_500, 100_510);
+    const opp = makeOpp({ buyExchange: "kraken", sellExchange: "binance" });
+
+    const taker = setup({ feeMode: "taker" }).sim.execute(opp, buyBook, sellBook);
+    const maker = setup({ feeMode: "maker" }).sim.execute(opp, buyBook, sellBook);
+
+    expect(taker).not.toBeNull();
+    expect(maker).not.toBeNull();
+    // Maker mode pays the lower maker fee on the passive (buy) leg ⇒ strictly
+    // lower total fees and strictly higher net — the knob moves real P&L.
+    expect(maker!.fees).toBeLessThan(taker!.fees);
+    expect(maker!.netProfit).toBeGreaterThan(taker!.netProfit);
+    expect(maker!.scenarioTags).toContain("maker");
+  });
+
   test("liquidity haircut shrinks the fillable size and is tagged", () => {
     const { sim } = setup({
       scenario: { rejectProb: 0, liquidityHaircutPct: 0.5, priceGapBps: 0 },

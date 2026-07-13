@@ -17,9 +17,9 @@ La **portada** funciona como *gate* de carga real: espera a que el stream de Soc
 <table>
 <tr>
 <td width="50%" valign="top">
-<b>Centro de parametrización</b> — un <b>drawer persistente</b> (no un modal que tapa la vista) con <b>31 controles en vivo</b>: presets de estrategia, decisión por <b>EV</b> vs. <b>umbral de spread</b>, fees/tamaño/guardas, e inyector de escenarios. Ajustas un parámetro y <i>ves reaccionar el feed y el P&L al instante</i>, sin cerrar nada.
+<b>Centro de parametrización</b> — un <b>drawer persistente</b> (no un modal que tapa la vista) con <b>45 controles en vivo</b>, cada uno con una nota de por qué existe: presets, decisión por <b>EV</b> vs. <b>umbral de spread</b>, fees maker/taker, tamaño/guardas, <b>disyuntor + kill-switch</b>, replay e inyector de escenarios. Ajustas un parámetro y <i>ves reaccionar el feed y el P&L al instante</i>, sin cerrar nada.
 <br/><br/>
-<img src="assets/screenshots/03-settings2.png" alt="Centro de parametrización: drawer persistente con 31 controles en vivo junto al dashboard" />
+<img src="assets/screenshots/03-settings2.png" alt="Centro de parametrización: drawer persistente con 45 controles en vivo junto al dashboard" />
 </td>
 <td width="50%" valign="top">
 <b>Análisis estadístico</b> — calculado en el servidor sobre <i>toda</i> la población de cruces detectados desde el arranque (datos reales, no narrativa): distribución de spread bruto vs. neto y actividad barato/caro por venue.
@@ -148,12 +148,12 @@ Además del arbitraje cross-exchange, el sistema monitorea **arbitraje triangula
 
 ## Modo demo / replay
 
-Los arbitrajes netos positivos reales entre venues importantes son prácticamente inexistentes, así que un demo puramente en vivo muestra un blotter (honestamente) vacío. Para demostrar la ruta de ejecución completa — llenados parciales, desviación de balances, P&L realizado, curva de equity — existe un **modo demo claramente etiquetado**:
+Los arbitrajes netos positivos reales entre venues importantes son prácticamente inexistentes, así que un demo puramente en vivo muestra un blotter (honestamente) vacío. Para demostrar la ruta de ejecución completa — llenados parciales, desviación de balances, P&L realizado, curva de equity — hay **dos inyectores claramente etiquetados y mutuamente excluyentes**:
 
-- Un venue sintético `demo` cotiza alrededor del precio de referencia en vivo e inyecta dislocaciones breves y realistas, suficientes para superar las comisiones de ida y vuelta.
-- Todo lo demás es el motor real: detección, net-profit por profundidad, riesgo, simulador, portafolio.
-- Es **imposible confundirlo con datos reales** — se muestra un banner permanente y el venue se llama `demo`.
-- **Seguro para dejarlo corriendo.** La memoria del proceso está **acotada por diseño** (curva de equity, ventanas de percentiles, timeline de rebalanceo e historial de chat tienen tope; el cliente recorta feeds a 60), así que ni el modo en vivo ni el demo acumulan memoria por horas. Y cuando se desconecta el **último cliente**, el inyector de demo se **auto-apaga** para no fabricar trades sintéticos sin público en el deploy compartido — los feeds reales siguen; al volver, se re-activa con un clic (o la tecla `D`).
+- **Demo (sintético).** Un venue `demo` cotiza alrededor del precio de referencia en vivo e inyecta dislocaciones breves y realistas, suficientes para superar las comisiones de ida y vuelta.
+- **Replay (grabación real).** Un `MarketRecorder` graba los ticks **reales** en un ring buffer acotado y un `ReplayPlayer` los reproduce por el motor a **velocidad variable** (`0.5×–10×`), en bucle — una demo **reproducible** hecha de datos reales, ideal frente al jurado cuando el mercado en vivo está tranquilo. Mientras corre, los feeds en vivo se **congelan** (el tape maneja el motor). Se enciende con el botón **Replay** (o la tecla `R`); la velocidad se ajusta en Parámetros.
+- En ambos, todo lo demás es el motor real: detección, net-profit por profundidad, riesgo, simulador, portafolio. Y son **imposibles de confundir con el mercado en vivo** — banner permanente por cada modo.
+- **Seguro para dejarlo corriendo.** La memoria del proceso está **acotada por diseño** (curva de equity, ventanas de percentiles, timeline de rebalanceo, historial de chat y el tape de replay tienen tope; el cliente recorta feeds a 60). Y cuando se desconecta el **último cliente**, demo y replay se **auto-apagan** para no correr sin público en el deploy compartido — los feeds reales siguen; al volver, se re-activan con un clic.
 
 Actívalo en vivo desde el dashboard (botón **Demo**), o arranca con él encendido:
 
@@ -163,16 +163,19 @@ DEMO_MODE=true bun run dev:server
 
 ## Centro de parametrización en vivo
 
-> **Novedad de la fase final.** Todo el comportamiento del bot es **ajustable en vivo** desde el control **Parámetros** de la barra de estado (con chip de modo EV/Spread y badge del contador). Se abre como **drawer lateral persistente** —no un modal que tapa el dashboard— así puedes **ajustar un parámetro y ver reaccionar el feed y el P&L al instante, sin cerrar nada** (en móvil cae a bottom-sheet). Nada requiere reinicio: cada cambio viaja por Socket.IO, se **valida y acota** en el servidor, y se refleja al instante en el feed, el P&L y en **todos los clientes conectados**. Para power-users hay **atajos de teclado** (`D` demo · `P` parámetros · `S` análisis · `?` guía · `Esc` cerrar; se desactivan mientras escribes). El detalle de esta fase está en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
+> **Novedad de la fase final.** Todo el comportamiento del bot es **ajustable en vivo** desde el control **Parámetros** de la barra de estado (con chip de modo EV/Spread y badge del contador). Se abre como **drawer lateral persistente** —no un modal que tapa el dashboard— así puedes **ajustar un parámetro y ver reaccionar el feed y el P&L al instante, sin cerrar nada** (en móvil cae a bottom-sheet). Nada requiere reinicio: cada cambio viaja por Socket.IO, se **valida y acota** en el servidor, y se refleja al instante en el feed, el P&L y en **todos los clientes conectados**. Para power-users hay **atajos de teclado** (`D` demo · `R` replay · `P` parámetros · `S` análisis · `?` guía · `Esc` cerrar; se desactivan mientras escribes). El detalle de esta fase está en [`docs/FASE_FINAL.md`](docs/FASE_FINAL.md).
 
-El panel está **agrupado por sección** y encabezado por un contador de **cuántos controles están vivos** (`N controles en vivo`), que crece con el número de venues:
+El panel está **agrupado por sección** y encabezado por un contador de **cuántos controles están vivos** (`N controles en vivo`), que crece con el número de venues. Cada control lleva una **nota de una línea de por qué existe y a qué afecta** — para demostrar criterio, no solo exponer una variable:
 
 - **Presets de estrategia** — un clic aplica un *bundle* completo y cambia la postura de riesgo al instante: **Conservador** (EV alto, size chico, guards estrictos), **Balanceado** (defaults), **Agresivo** (size grande, guards laxos) y **Mesa / MM** (modo spread, inventario ajustado). Ideal para que un juez "juegue" y vea el sistema reaccionar.
 - **Estrategia** — modo de decisión **EV ↔ spread** (ver abajo) y `ganancia neta mínima`.
 - **Valor esperado (EV)** — `τ` de latencia, costo de selección adversa y EV mínimo.
 - **Tamaño y capital** — `nominal máximo por pata` (tamaño de orden).
 - **Riesgo y guardas** — `spread máximo` (guarda anti-glitch de datos), `antigüedad máxima de quote` (guarda de feed obsoleto) y `desviación máxima vs consenso` (guarda de **feed dislocado**: descarta un venue que se aleja de la mediana multi-venue — ver [Robustez](#robustez-máquina-de-estados--inyector-de-escenarios)).
+- **Límites de riesgo (automáticos)** — `disyuntor por venue` (rechazos / ventana / cooldown antes de banquear un venue) y `kill-switch por pérdida de sesión` (detiene TODA la ejecución si el P&L realizado cruza el piso). Se **ven actuar** (badges, banner) y Filo los narra — ver [Robustez](#robustez-máquina-de-estados--inyector-de-escenarios).
+- **Modo de fee** — `taker ↔ maker`: en maker la pata pasiva paga el fee menor, lo que **cambia qué cruces superan el umbral neto** (visible en feed y P&L). Honesto solo con un escenario de rechazo activo, porque los fills maker no están garantizados.
 - **Rebalanceo de inventario** — `umbral de drift` (BTC) que dispara una transferencia on-chain y cobra el withdrawal fee amortizado.
+- **Replay** — `velocidad` de reproducción del mercado real grabado (`0.5×–10×`).
 - **Fees por exchange** — editor del **taker fee de cada venue**. Súbelo y verás cómo mueren cruces que antes eran rentables; bájalo a 0 y verás cuántos aparecen. El fee es la variable que decide qué es arbitraje y qué no.
 - **Exchanges activos** — *toggle* por venue para **incluirlo o excluirlo del arbitraje** en vivo. Su feed **sigue transmitiéndose** en el panel de mercado; simplemente deja de participar en la comparación y la ejecución.
 - **Filo** — cadencia del resumen y silenciar/activar narraciones.
@@ -205,10 +208,20 @@ El **inyector de escenarios adversos** (claramente etiquetado, banner rojo + sec
 - **Rechazo de pata** — cada pata puede rechazarse (fill 0).
 - **Recorte de liquidez** — encoge la profundidad del book (crunch).
 - **Gap de precio en ejecución** — el mercado se mueve en contra a mitad de la operación.
+- **Tirar un exchange** — *toggle* por venue que **cae** el feed a mitad de operación: su quote envejece, la guarda de quote obsoleta lo saca sola, cae del consenso y el bot **enruta alrededor** (se marca `CAÍDO`). Es la caída *manejada*, no un simple toggle de configuración.
 
 En el **blotter** cada fila muestra el estado de cada pata (B✓ / S✕ / ◑) y un badge `RE-HEDGED` / `UNWOUND` / `PARTIAL` con el residual y el costo de aplanar; **Filo narra** cada vuelta a plano. Un filtro **Residual · partial** aísla justo los fills que la máquina de estados tuvo que resolver, y cada fill nuevo hace un breve *flash* (verde/rojo) para leer la actividad de un vistazo. Bajo un gap fuerte los netos salen en rojo — y así debe ser: el mercado se movió en contra y el sistema lo refleja con honestidad. Como todo lo sintético (igual que el modo demo), es **imposible confundirlo con datos reales**, arranca inactivo y no requiere credenciales.
 
-Implementación: `apps/server/src/engine/executionSimulator.ts` (patas, rejects, haircut, gap, resolución) y `engine/portfolio.ts` (aplica los deltas). El estado del escenario es parte de `EngineConfig.scenario` y viaja por el mismo `updateConfig` validado en el servidor.
+### Controles automáticos: disyuntor por venue + kill-switch de sesión
+
+Por encima de la guarda por trade, un `RiskGovernor` (`apps/server/src/engine/riskGovernor.ts`) suma dos controles que **detienen o aíslan** la operación cuando algo se rompe sistemáticamente — y se **ven actuar**:
+
+- **Disyuntor por venue.** Cuenta rechazos de pata en una ventana móvil; al cruzar el umbral **banquea** ese venue durante un cooldown y luego se **rearma solo**. Mientras tanto, las rutas que lo tocan salen `SKIP` y el venue aparece tachado con badge `DISYUNTOR` en la barra de estado y el panel de mercado.
+- **Kill-switch de sesión.** Si el **P&L realizado** cae a −`maxSessionLossUsd`, **detiene TODA la ejecución** (la detección sigue) hasta el reset — banner `EJECUCIÓN DETENIDA`.
+
+Ambos son live-tunables y **Filo narra** cada transición. Lo clave: se **disparan con el escenario de rechazo**, así el juez los provoca y los ve actuar. Cubierto por `apps/server/tests/riskGovernor.test.ts`.
+
+Implementación: `apps/server/src/engine/executionSimulator.ts` (patas, rejects, haircut, gap, resolución, fee maker/taker) y `engine/portfolio.ts` (aplica los deltas). El estado del escenario es parte de `EngineConfig.scenario` (incluyendo `downedVenues`) y viaja por el mismo `updateConfig` validado en el servidor.
 
 ### Guarda de feed dislocado (consenso multi-venue)
 

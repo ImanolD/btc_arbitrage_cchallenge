@@ -43,9 +43,16 @@ export class ExecutionSimulator {
     sellBook: TopOfBook,
   ): SimulatedTrade | null {
     const sc = this.config.scenario;
-    const buyFee = this.config.fees[opp.buyExchange].takerFee;
+    // Maker fee mode: the passive (buy) leg rests as a maker order; the active
+    // (sell) leg and any residual-flattening trade still cross as takers. Kept in
+    // sync with detection in arbitrageEngine.consider().
+    const buyFee =
+      this.config.feeMode === "maker"
+        ? this.config.fees[opp.buyExchange].makerFee
+        : this.config.fees[opp.buyExchange].takerFee;
     const sellFee = this.config.fees[opp.sellExchange].takerFee;
     const scenarioTags: string[] = [];
+    if (this.config.feeMode === "maker") scenarioTags.push("maker");
 
     // Cap by available wallet balances (inventory model).
     const cap = this.portfolio.capacity(opp.buyExchange, opp.sellExchange, buyBook.bestAsk);

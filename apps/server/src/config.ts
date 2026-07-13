@@ -82,9 +82,23 @@ export const engineConfig: EngineConfig = {
   // are declared; assigned by reference so live edits propagate everywhere.
   rebalanceThresholdBtc: 0,
   fees: {} as Record<ExchangeId, FeeModel>,
+  // Both legs cross as takers by default (correct for latency-sensitive arb).
+  feeMode: (process.env.FEE_MODE === "maker" ? "maker" : "taker") as EngineConfig["feeMode"],
   disabledExchanges: [],
   // Adverse-scenario injector starts off (normal execution).
-  scenario: { rejectProb: 0, liquidityHaircutPct: 0, priceGapBps: 0 },
+  scenario: { rejectProb: 0, liquidityHaircutPct: 0, priceGapBps: 0, downedVenues: [] },
+  // Automated risk controls. The per-venue circuit breaker is armed by default
+  // (only trips under repeated rejections); the session loss-limit halt is off
+  // by default (0) so a judge opts into the kill-switch explicitly.
+  riskLimits: {
+    breakerRejects: num("BREAKER_REJECTS", 3),
+    breakerWindowMs: num("BREAKER_WINDOW_MS", 10_000),
+    breakerCooldownMs: num("BREAKER_COOLDOWN_MS", 15_000),
+    maxSessionLossUsd: num("MAX_SESSION_LOSS_USD", 0),
+  },
+  // Market replay (recorded real data) starts off; speed is a live multiplier.
+  replayMode: false,
+  replaySpeed: num("REPLAY_SPEED", 4),
 };
 
 function str(name: string): string | undefined {
@@ -138,16 +152,16 @@ export const REBALANCE_THRESHOLD_BTC = num("REBALANCE_THRESHOLD_BTC", 0.5);
  * not charged — see docs/ARCHITECTURE.md for the reasoning.
  */
 export const feeModels: Record<ExchangeId, FeeModel> = {
-  binance: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
-  kraken: { takerFee: 0.0026, withdrawalFeeBtc: 0.00015 },
-  coinbase: { takerFee: 0.006, withdrawalFeeBtc: 0.0 },
-  okx: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
-  bybit: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
-  kucoin: { takerFee: 0.001, withdrawalFeeBtc: 0.0005 },
-  gate: { takerFee: 0.002, withdrawalFeeBtc: 0.001 },
-  bitstamp: { takerFee: 0.003, withdrawalFeeBtc: 0.0 },
-  bitfinex: { takerFee: 0.002, withdrawalFeeBtc: 0.0004 },
-  demo: { takerFee: 0.001, withdrawalFeeBtc: 0.0002 },
+  binance: { takerFee: 0.001, makerFee: 0.001, withdrawalFeeBtc: 0.0002 },
+  kraken: { takerFee: 0.0026, makerFee: 0.0016, withdrawalFeeBtc: 0.00015 },
+  coinbase: { takerFee: 0.006, makerFee: 0.004, withdrawalFeeBtc: 0.0 },
+  okx: { takerFee: 0.001, makerFee: 0.0008, withdrawalFeeBtc: 0.0002 },
+  bybit: { takerFee: 0.001, makerFee: 0.001, withdrawalFeeBtc: 0.0002 },
+  kucoin: { takerFee: 0.001, makerFee: 0.001, withdrawalFeeBtc: 0.0005 },
+  gate: { takerFee: 0.002, makerFee: 0.0015, withdrawalFeeBtc: 0.001 },
+  bitstamp: { takerFee: 0.003, makerFee: 0.0025, withdrawalFeeBtc: 0.0 },
+  bitfinex: { takerFee: 0.002, makerFee: 0.001, withdrawalFeeBtc: 0.0004 },
+  demo: { takerFee: 0.001, makerFee: 0.0008, withdrawalFeeBtc: 0.0002 },
 };
 
 // Wire the live-tunable pieces into the shared engineConfig by reference, so a

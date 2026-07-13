@@ -25,6 +25,7 @@ import { BaseConnector, createConnector, createConnectors } from "./exchanges/in
 import { ArbitrageEngine } from "./engine/arbitrageEngine.js";
 import { TriangularEngine } from "./engine/triangularEngine.js";
 import { DemoMarketMaker } from "./demo/demoMarketMaker.js";
+import { MarketRecorder, ReplayPlayer } from "./demo/marketReplay.js";
 import { FiloAgent } from "./filo/filoAgent.js";
 import { WhatsAppBridge } from "./filo/whatsappBridge.js";
 import {
@@ -120,6 +121,8 @@ function currentFeeds(): FeedStatus[] {
       deviationBps: h?.deviationBps ?? null,
       stale: h?.stale ?? false,
       dislocated: h?.dislocated ?? false,
+      benched: h?.benched ?? false,
+      downed: h?.downed ?? false,
     };
   });
 }
@@ -135,7 +138,11 @@ function emitFeeds(): void {
 // emits the derived analytics.
 engine.on("opportunity", (opp) => broadcast("opportunity", opp));
 engine.on("trade", (trade) => broadcast("trade", trade));
-engine.on("portfolio", (stats) => broadcast("portfolio", stats));
+engine.on("portfolio", (stats) => {
+  broadcast("portfolio", stats);
+  // Let Filo narrate the global loss-limit halt/resume transition.
+  filo.noteRiskState(stats.riskState);
+});
 engine.on("latency", (stats) => broadcast("latency", stats));
 engine.on("stats", (stats) => broadcast("stats", stats));
 
@@ -159,6 +166,7 @@ io.on("connection", (socket: ArbSocket) => {
   });
 
   socket.on("setDemo", (enabled: boolean) => setDemoMode(enabled));
+  socket.on("setReplay", (enabled: boolean) => setReplayMode(enabled));
 
   socket.on("updateConfig", (patch) => applyConfigPatch(patch));
 
@@ -191,15 +199,35 @@ io.on("connection", (socket: ArbSocket) => {
       setDemoMode(false);
       console.log("[demo] auto-stopped: no connected clients");
     }
+    if (clients.size === 0 && engineConfig.replayMode) {
+      setReplayMode(false);
+      console.log("[replay] auto-stopped: no connected clients");
+    }
   });
 });
 
-// Synthetic demo/replay venue — feeds the engine like any other connector.
+// Synthetic demo venue — feeds the engine like any other connector.
 const demo = new DemoMarketMaker(SYMBOL, () => engine.currentReferencePrice());
 demo.on("book", (book) => {
   engine.onBook(book);
   broadcast("book", book);
   const fs = feedStatus.get("demo");
+  if (fs) fs.lastUpdate = book.receivedAt;
+});
+
+// Market replay: a rolling recorder of REAL ticks + a variable-speed player that
+// streams a recorded slice back through the engine (reproducible demo when the
+// live market is quiet). The player rewrites timestamps to now, so replayed
+// books are broadcast and processed exactly like live ones.
+const recorder = new MarketRecorder();
+const replay = new ReplayPlayer(
+  () => recorder.snapshot(),
+  () => engineConfig.replaySpeed,
+);
+replay.on("book", (book) => {
+  engine.onBook(book);
+  broadcast("book", book);
+  const fs = feedStatus.get(book.exchange);
   if (fs) fs.lastUpdate = book.receivedAt;
 });
 
@@ -287,6 +315,10 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
       }
     }
   }
+  // Fee mode: assume the passive leg is taker (default) or maker.
+  if (patch.feeMode === "taker" || patch.feeMode === "maker") {
+    engineConfig.feeMode = patch.feeMode;
+  }
   // Active/inactive venues: keep only valid, currently-configured exchanges.
   if (Array.isArray(patch.disabledExchanges)) {
     const valid = new Set(engineConfig.exchanges);
@@ -294,10 +326,30 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
       ...new Set(patch.disabledExchanges.filter((e) => valid.has(e))),
     ];
   }
+  // Circuit-breaker / loss-limit controls.
+  if (patch.riskLimits && typeof patch.riskLimits === "object") {
+    const rl = patch.riskLimits;
+    if (typeof rl.breakerRejects === "number" && Number.isFinite(rl.breakerRejects)) {
+      engineConfig.riskLimits.breakerRejects = Math.round(clamp(rl.breakerRejects, 0, 100));
+    }
+    if (typeof rl.breakerWindowMs === "number" && Number.isFinite(rl.breakerWindowMs)) {
+      engineConfig.riskLimits.breakerWindowMs = clamp(rl.breakerWindowMs, 1_000, 600_000);
+    }
+    if (typeof rl.breakerCooldownMs === "number" && Number.isFinite(rl.breakerCooldownMs)) {
+      engineConfig.riskLimits.breakerCooldownMs = clamp(rl.breakerCooldownMs, 1_000, 600_000);
+    }
+    if (typeof rl.maxSessionLossUsd === "number" && Number.isFinite(rl.maxSessionLossUsd)) {
+      engineConfig.riskLimits.maxSessionLossUsd = clamp(rl.maxSessionLossUsd, 0, 100_000_000);
+    }
+  }
+  // Replay playback speed (only meaningful while replaying).
+  if (typeof patch.replaySpeed === "number" && Number.isFinite(patch.replaySpeed)) {
+    engineConfig.replaySpeed = clamp(patch.replaySpeed, 0.25, 20);
+  }
   // Adverse-scenario injector (clearly-labeled chaos mode). All fields clamp to
-  // safe ranges; all zero = inactive.
+  // safe ranges; all zero/empty = inactive.
   if (patch.scenario && typeof patch.scenario === "object") {
-    const { rejectProb, liquidityHaircutPct, priceGapBps } = patch.scenario;
+    const { rejectProb, liquidityHaircutPct, priceGapBps, downedVenues } = patch.scenario;
     if (typeof rejectProb === "number" && Number.isFinite(rejectProb)) {
       engineConfig.scenario.rejectProb = clamp(rejectProb, 0, 1);
     }
@@ -307,7 +359,27 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
     if (typeof priceGapBps === "number" && Number.isFinite(priceGapBps)) {
       engineConfig.scenario.priceGapBps = clamp(priceGapBps, 0, 1_000);
     }
+    // "Kill a venue": force a set of real venues dark. Keep only valid ones; the
+    // demo venue can't be downed. Reflect the transition in the feed status so
+    // the dashboard immediately shows the venue as disconnected.
+    if (Array.isArray(downedVenues)) {
+      const valid = new Set<ExchangeId>(engineConfig.exchanges.filter((e) => e !== "demo"));
+      engineConfig.scenario.downedVenues = [
+        ...new Set(downedVenues.filter((e) => valid.has(e))),
+      ];
+      for (const ex of engineConfig.exchanges) {
+        const fs = feedStatus.get(ex);
+        if (!fs) continue;
+        if (engineConfig.scenario.downedVenues.includes(ex)) {
+          fs.status = "disconnected";
+        } else if (fs.status === "disconnected") {
+          // Un-downed: let the next real tick flip it back to connected.
+          fs.status = "connecting";
+        }
+      }
+    }
     filo.noteScenario(engineConfig.scenario);
+    emitFeeds();
   }
 
   broadcast("config", engineConfig);
@@ -323,6 +395,8 @@ function applyConfigPatch(patch: EngineConfigPatch): void {
 
 function setDemoMode(enabled: boolean): void {
   if (enabled === engineConfig.demoMode) return;
+  // Demo and replay are mutually exclusive injectors (both drive the engine).
+  if (enabled && engineConfig.replayMode) setReplayMode(false);
   engineConfig.demoMode = enabled;
   if (enabled) {
     feedStatus.set("demo", {
@@ -341,6 +415,25 @@ function setDemoMode(enabled: boolean): void {
   console.log(`[demo] ${enabled ? "ENABLED" : "disabled"}`);
 }
 
+/**
+ * Toggle the market REPLAY injector. Enabling freezes the live feeds and streams
+ * the recorded tape back through the engine at `replaySpeed`; disabling resumes
+ * live processing. Mutually exclusive with the synthetic demo injector.
+ */
+function setReplayMode(enabled: boolean): void {
+  if (enabled === engineConfig.replayMode) return;
+  if (enabled && engineConfig.demoMode) setDemoMode(false);
+  engineConfig.replayMode = enabled;
+  if (enabled) replay.start();
+  else replay.stop();
+  broadcast("config", engineConfig);
+  emitFeeds();
+  filo.noteReplay(enabled, recorder.size);
+  console.log(
+    `[replay] ${enabled ? "ENABLED" : "disabled"} (speed ${engineConfig.replaySpeed}x, ${recorder.size} ticks taped)`,
+  );
+}
+
 // Wire up exchange connectors.
 const connectors = createConnectors(engineConfig.exchanges, SYMBOL);
 for (const connector of connectors) {
@@ -355,6 +448,13 @@ for (const connector of connectors) {
     // order-book connectors can momentarily desync; drop the tick and wait for
     // the next clean one rather than surfacing an impossible quote.
     if (book.bestBid >= book.bestAsk) return;
+    // Adverse "kill a venue" scenario: freeze a downed venue's feed entirely so
+    // it ages out and the dashboard shows it dark.
+    if (engineConfig.scenario.downedVenues?.includes(connector.id)) return;
+    // During replay the live feeds are frozen — the recorded tape drives the
+    // engine instead — so we neither process nor record genuine live ticks.
+    if (engineConfig.replayMode) return;
+    recorder.record(book);
     engine.onBook(book);
     broadcast("book", book);
     const fs = feedStatus.get(connector.id);
