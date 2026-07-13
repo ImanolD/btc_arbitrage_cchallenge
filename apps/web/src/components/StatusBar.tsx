@@ -46,6 +46,8 @@ export function StatusBar({
   const [menuOpen, setMenuOpen] = useState(false);
   const demoOn = config?.demoMode ?? false;
   const modeLabel = config ? (config.decisionMode === "ev" ? "EV" : "Spread") : null;
+  // Live-tunable control count (mirrors SettingsPanel: 15 base + 2 per venue).
+  const controlCount = config ? 15 + config.exchanges.length * 2 : null;
   const close = () => setMenuOpen(false);
 
   // Ticking uptime for the "live since" pill (once a minute is plenty).
@@ -156,13 +158,26 @@ export function StatusBar({
           onClick={() => onToggleDemo(!demoOn)}
           title="Toggle the clearly-labeled synthetic demo/replay injector"
         />
-        <NavButton
+        <button
           id="tour-settings"
-          icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
-          label={modeLabel ?? t("nav.settings")}
+          type="button"
           onClick={onOpenSettings}
-          title={t("nav.settings")}
-        />
+          title={t("nav.params.tip")}
+          className="flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          {t("nav.params")}
+          {modeLabel && (
+            <span className="rounded bg-primary/20 px-1 py-px text-[10px] tabular-nums">
+              {modeLabel}
+            </span>
+          )}
+          {controlCount != null && (
+            <span className="rounded bg-background/50 px-1 py-px text-[10px] tabular-nums text-muted-foreground">
+              {controlCount}
+            </span>
+          )}
+        </button>
         <NavButton
           icon={<BarChart3 className="h-3.5 w-3.5" />}
           label={t("nav.stats")}
@@ -244,17 +259,24 @@ export function StatusBar({
               />
               <MenuRow
                 icon={<SlidersHorizontal className="h-4 w-4" />}
-                label={t("nav.settings")}
+                label={t("nav.params")}
                 onClick={() => {
                   onOpenSettings();
                   close();
                 }}
                 trailing={
-                  modeLabel ? (
-                    <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                      {modeLabel}
-                    </span>
-                  ) : undefined
+                  <span className="flex items-center gap-1">
+                    {modeLabel && (
+                      <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        {modeLabel}
+                      </span>
+                    )}
+                    {controlCount != null && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-muted-foreground">
+                        {controlCount}
+                      </span>
+                    )}
+                  </span>
                 }
               />
               <MenuRow

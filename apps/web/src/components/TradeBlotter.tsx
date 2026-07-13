@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { InfoButton } from "@/components/InfoButton";
+import { HonestEmpty } from "@/components/HonestEmpty";
 import {
   Table,
   TableBody,
@@ -16,6 +17,8 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   trades: SimulatedTrade[];
+  demoOn: boolean;
+  onEnableDemo: () => void;
 }
 
 /** A per-leg fill-state chip (B / S with a color by state). */
@@ -74,7 +77,7 @@ function StateBadges({ trade: t }: { trade: SimulatedTrade }) {
   );
 }
 
-export function TradeBlotter({ trades }: Props) {
+export function TradeBlotter({ trades, demoOn, onEnableDemo }: Props) {
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
@@ -84,6 +87,9 @@ export function TradeBlotter({ trades }: Props) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
+        {trades.length === 0 ? (
+          <HonestEmpty demoOn={demoOn} onEnableDemo={onEnableDemo} />
+        ) : (
         <ScrollArea className="h-full">
           <Table className="[&_td]:px-1.5 [&_th]:px-1.5">
             <TableHeader>
@@ -99,13 +105,6 @@ export function TradeBlotter({ trades }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {trades.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
-                    No trades executed yet.
-                  </TableCell>
-                </TableRow>
-              )}
               {trades.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="text-muted-foreground">{time(t.executedAt)}</TableCell>
@@ -132,6 +131,7 @@ export function TradeBlotter({ trades }: Props) {
             </TableBody>
           </Table>
         </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );

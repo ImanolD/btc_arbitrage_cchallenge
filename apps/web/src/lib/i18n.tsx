@@ -171,6 +171,13 @@ const STRINGS = {
     "chat.whatsapp.or": "o",
     "chat.whatsapp.open": "Abrir WhatsApp en este equipo",
     "nav.settings": "Ajustes",
+    "nav.params": "Parámetros",
+    "nav.params.tip": "Centro de parametrización en vivo — ajusta y mira reaccionar al sistema",
+    "empty.honest.title": "Sin ejecuciones — y así debe ser",
+    "empty.honest.body":
+      "Con datos reales, el spread neto cross-exchange casi siempre es negativo tras fees: el mercado es eficiente. Que no se dispare nada es la respuesta correcta, no un bug. Enciende Demo para ver la ejecución de punta a punta.",
+    "empty.enableDemo": "Encender modo Demo",
+    "empty.demoOn": "Demo activo — esperando ejecuciones…",
     "settings.title": "Ajustes del motor",
     "settings.subtitle":
       "Ajusta la estrategia y los parámetros en vivo. Cambia entre decisión por valor esperado y por umbral de spread para ver la diferencia en el feed al instante.",
@@ -397,6 +404,13 @@ const STRINGS = {
     "chat.whatsapp.or": "or",
     "chat.whatsapp.open": "Open WhatsApp on this device",
     "nav.settings": "Settings",
+    "nav.params": "Parameters",
+    "nav.params.tip": "Live parametrization center — tune it and watch the system react",
+    "empty.honest.title": "No fills — and that's the point",
+    "empty.honest.body":
+      "On real data the net cross-exchange spread is almost always negative after fees: the market is efficient. Firing nothing is the correct answer, not a bug. Turn on Demo to watch execution end to end.",
+    "empty.enableDemo": "Enable Demo mode",
+    "empty.demoOn": "Demo on — waiting for fills…",
     "settings.title": "Engine settings",
     "settings.subtitle":
       "Tune the strategy and parameters live. Flip between expected-value and spread-threshold decisioning to see the difference in the feed instantly.",

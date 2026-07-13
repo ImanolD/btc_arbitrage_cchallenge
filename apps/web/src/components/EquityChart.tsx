@@ -9,13 +9,16 @@ import {
 import type { PortfolioStats } from "@arb/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoButton } from "@/components/InfoButton";
+import { HonestEmpty } from "@/components/HonestEmpty";
 import { time, usd } from "@/lib/format";
 
 interface Props {
   portfolio: PortfolioStats | null;
+  demoOn: boolean;
+  onEnableDemo: () => void;
 }
 
-export function EquityChart({ portfolio }: Props) {
+export function EquityChart({ portfolio, demoOn, onEnableDemo }: Props) {
   const data = (portfolio?.equityCurve ?? []).map((p) => ({
     t: p.t,
     equity: p.equity,
@@ -34,9 +37,7 @@ export function EquityChart({ portfolio }: Props) {
       </CardHeader>
       <CardContent className="flex-1">
         {data.length < 2 ? (
-          <div className="flex h-full min-h-[160px] items-center justify-center text-muted-foreground">
-            Equity curve builds as trades execute…
-          </div>
+          <HonestEmpty demoOn={demoOn} onEnableDemo={onEnableDemo} />
         ) : (
           <ResponsiveContainer width="100%" height="100%" minHeight={160}>
             <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>

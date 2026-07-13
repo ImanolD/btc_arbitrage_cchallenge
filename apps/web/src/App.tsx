@@ -18,6 +18,7 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { FiloChat } from "@/components/FiloChat";
 import { CoverPage } from "@/components/CoverPage";
 import { useLang } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 import { startTour } from "@/lib/tour";
 import { downloadSessionReport, type ReportFormat } from "@/lib/report";
 
@@ -55,7 +56,13 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background">
+    <div
+      className={cn(
+        "flex min-h-screen flex-col overflow-x-hidden bg-background transition-[padding] duration-300 ease-out",
+        // Make room for the docked parameters drawer on desktop so nothing hides behind it.
+        settingsOpen && "sm:pr-[400px]",
+      )}
+    >
       {!entered && (
         <CoverPage connected={state.connected} onEnter={() => setEntered(true)} />
       )}
@@ -138,13 +145,21 @@ export default function App() {
             className="flex min-h-[480px] flex-col gap-3 lg:col-span-4"
           >
             <div className="h-[240px]">
-              <EquityChart portfolio={state.portfolio} />
+              <EquityChart
+                portfolio={state.portfolio}
+                demoOn={state.config?.demoMode ?? false}
+                onEnableDemo={() => state.setDemo(true)}
+              />
             </div>
             <div id="tour-wallets" className="h-[300px]">
               <WalletsPanel portfolio={state.portfolio} />
             </div>
             <div className="min-h-0 flex-1">
-              <TradeBlotter trades={state.trades} />
+              <TradeBlotter
+                trades={state.trades}
+                demoOn={state.config?.demoMode ?? false}
+                onEnableDemo={() => state.setDemo(true)}
+              />
             </div>
           </div>
         </div>

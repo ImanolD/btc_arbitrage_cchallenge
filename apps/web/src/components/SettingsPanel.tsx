@@ -83,18 +83,36 @@ const PRESETS: { key: StringKey; patch: EngineConfigPatch }[] = [
 
 export function SettingsPanel({ open, config, onUpdate, onReset, onExport, onClose }: Props) {
   const { t } = useLang();
-  if (!open) return null;
 
+  // Persistent side drawer (not a covering modal): on desktop it docks to the
+  // right and leaves the dashboard visible + interactive, so a judge can tune a
+  // parameter and WATCH the feed / P&L react live — the whole point of the
+  // parametrization center. On mobile it falls back to a bottom sheet with a
+  // backdrop (limited screen real estate).
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div
-        className="relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:max-h-[88vh] sm:max-w-lg sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm sm:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        role="dialog"
+        aria-label={t("settings.title")}
+        aria-hidden={!open}
+        className={cn(
+          "fixed z-50 flex flex-col overflow-hidden border-border bg-card shadow-2xl transition-transform duration-300 ease-out",
+          // Mobile: bottom sheet.
+          "inset-x-0 bottom-0 max-h-[88vh] rounded-t-2xl border-t",
+          // Desktop: full-height right drawer (inset-y-0 keeps top:0/bottom:0 so the
+          // body's overflow-y-auto actually has a bounded height to scroll within).
+          "sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[400px] sm:max-w-[90vw] sm:rounded-none sm:border-l sm:border-t-0",
+          open
+            ? "translate-y-0 sm:translate-x-0"
+            : "pointer-events-none translate-y-full sm:translate-y-0 sm:translate-x-full",
+        )}
       >
         <div className="mx-auto mt-2.5 h-1 w-10 flex-none rounded-full bg-white/15 sm:hidden" />
         <button
@@ -118,8 +136,8 @@ export function SettingsPanel({ open, config, onUpdate, onReset, onExport, onClo
             <Body config={config} onUpdate={onUpdate} onReset={onReset} onExport={onExport} />
           )}
         </div>
-      </div>
-    </div>
+      </aside>
+    </>
   );
 }
 
