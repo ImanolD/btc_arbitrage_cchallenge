@@ -268,7 +268,7 @@ fase con dos piezas:
   - `portfolio.test.ts` — (s,S) (sin transferencia dentro de la banda, envío al
     objetivo al cruzar el techo, PnL/win-rate, capacidad acotada por USD/BTC).
 
-Corren con `bun run test` (15 tests) y `bun run typecheck` (los 3 paquetes), y
+Corren con `bun run test` (20 tests) y `bun run typecheck` (los 3 paquetes), y
 ambos se ejecutan en **CI** (`.github/workflows/ci.yml`) en cada push/PR. Los
 tests viven **fuera de `src/`** para no contaminar el `tsc` de producción con
 `bun:test`.
@@ -298,6 +298,33 @@ vez de solo reaccionar.
 **Nota de i18n.** Todo el panel de inventario (KPIs, estados *in band / above
 ceiling / below floor*, timeline y el nuevo pronóstico) quedó **internacionalizado
 ES/EN**, cerrando el último texto que estaba hardcodeado en inglés.
+
+---
+
+## ✅ Enviado — Guarda de feed dislocado + resiliencia de UI
+
+Durante la evaluación notamos que el deploy a veces "enloquecía": un aluvión de
+oportunidades como si fuera modo demo, sin serlo. Diagnóstico: en un host con
+throttling, el event loop se congela y luego procesa un **backlog** de mensajes de
+WS; cada uno queda con hora de recepción **fresca** aunque su precio sea viejo, así
+que el guard de antigüedad no lo detecta. Ese venue queda **dislocado** y fabrica
+arbitrajes fantasma.
+
+- **Guarda por consenso multi-venue.** En cada tick el motor calcula la **mediana
+  de los mids** de los venues frescos (quórum ≥3) y **descarta cualquier ruta cuyo
+  venue se desvíe más de `maxVenueDeviationPct`** (1% por defecto) del consenso.
+  Es **independiente del reloj**, así que sobrevive a los stalls del event loop; el
+  venue `demo` (dislocado a propósito) queda exento. Implementación:
+  `arbitrageEngine.computeConsensusMid` + `engine/riskManager.ts`; el rechazo
+  aparece en el feed como `dislocated feed: <venue> X% vs consensus`.
+- **Live-tunable.** `maxVenueDeviationPct` se ajusta desde Ajustes → Riesgo y
+  guardas (0 = off), viaja validado por el servidor, y se suma a los presets. El
+  contador de controles en vivo pasó de 14 a **15** (+ 2 por venue).
+- **Resiliencia de UI.** El frontend va envuelto en un **error boundary**: un
+  payload con forma inesperada (p. ej. desfase de versión servidor/cliente en un
+  redeploy parcial) muestra un mensaje recuperable con recarga en vez de una
+  **pantalla en negro**. El blotter degrada con gracia trades sin estado por pata.
+- Cubierto por `riskManager.test.ts` (5 casos). Suite total: **20 tests**.
 
 ### Fuera de alcance (deliberado)
 

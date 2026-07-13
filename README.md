@@ -170,7 +170,7 @@ El panel está **agrupado por sección** y encabezado por un contador de **cuán
 - **Estrategia** — modo de decisión **EV ↔ spread** (ver abajo) y `ganancia neta mínima`.
 - **Valor esperado (EV)** — `τ` de latencia, costo de selección adversa y EV mínimo.
 - **Tamaño y capital** — `nominal máximo por pata` (tamaño de orden).
-- **Riesgo y guardas** — `spread máximo` (guarda anti-glitch de datos) y `antigüedad máxima de quote` (guarda de feed obsoleto).
+- **Riesgo y guardas** — `spread máximo` (guarda anti-glitch de datos), `antigüedad máxima de quote` (guarda de feed obsoleto) y `desviación máxima vs consenso` (guarda de **feed dislocado**: descarta un venue que se aleja de la mediana multi-venue — ver [Robustez](#robustez-máquina-de-estados--inyector-de-escenarios)).
 - **Rebalanceo de inventario** — `umbral de drift` (BTC) que dispara una transferencia on-chain y cobra el withdrawal fee amortizado.
 - **Fees por exchange** — editor del **taker fee de cada venue**. Súbelo y verás cómo mueren cruces que antes eran rentables; bájalo a 0 y verás cuántos aparecen. El fee es la variable que decide qué es arbitraje y qué no.
 - **Exchanges activos** — *toggle* por venue para **incluirlo o excluirlo del arbitraje** en vivo. Su feed **sigue transmitiéndose** en el panel de mercado; simplemente deja de participar en la comparación y la ejecución.
@@ -208,6 +208,14 @@ El **inyector de escenarios adversos** (claramente etiquetado, banner rojo + sec
 En el **blotter** cada fila muestra el estado de cada pata (B✓ / S✕ / ◑) y un badge `RE-HEDGED` / `UNWOUND` / `PARTIAL` con el residual y el costo de aplanar; **Filo narra** cada vuelta a plano. Bajo un gap fuerte los netos salen en rojo — y así debe ser: el mercado se movió en contra y el sistema lo refleja con honestidad. Como todo lo sintético (igual que el modo demo), es **imposible confundirlo con datos reales**, arranca inactivo y no requiere credenciales.
 
 Implementación: `apps/server/src/engine/executionSimulator.ts` (patas, rejects, haircut, gap, resolución) y `engine/portfolio.ts` (aplica los deltas). El estado del escenario es parte de `EngineConfig.scenario` y viaja por el mismo `updateConfig` validado en el servidor.
+
+### Guarda de feed dislocado (consenso multi-venue)
+
+Un feed que se atrasa o entra en reconexión (típico en un host con throttling: el event loop se congela y luego procesa un backlog de mensajes que **parecen frescos** por su hora de recepción, pero cuyo precio es viejo) queda **dislocado** del resto del mercado y fabricaría "arbitrajes" fantasma. Además del guard de antigüedad y del de spread inverosímil, el motor calcula en cada tick la **mediana de los mids** de los venues frescos (quórum ≥3) y **descarta cualquier ruta cuyo venue se desvíe más de un umbral** (`maxVenueDeviationPct`, 1% por defecto, ajustable en vivo) de ese consenso. Es **independiente del reloj**, así que sobrevive a los stalls del event loop donde una cotización vieja luce fresca. El venue `demo` (dislocado a propósito) está exento. Implementación: `arbitrageEngine.computeConsensusMid` + `engine/riskManager.ts`.
+
+### Resiliencia de UI (sin pantallas en negro)
+
+El frontend está envuelto en un **error boundary** (`apps/web/src/components/ErrorBoundary.tsx`): si un payload llega con una forma inesperada (p. ej. un desfase de versión servidor/cliente durante un redeploy parcial), se muestra un mensaje recuperable con botón de recarga en vez de dejar la pantalla en negro. El blotter además degrada con gracia trades sin estado por pata (builds antiguos), sin tumbar el dashboard.
 
 ## Inventario y rebalanceo (s,S)
 
@@ -294,6 +302,7 @@ Todo es opcional — ver `.env.example`. Lo más relevante:
 | `MIN_NET_PROFIT_USD` | `1` | Ganancia neta mínima para ejecutar. También ajustable en vivo |
 | `MAX_SANE_SPREAD_PCT` | `0.05` | Rechaza spreads más anchos como datos erróneos. También ajustable en vivo |
 | `MAX_QUOTE_AGE_MS` | `2000` | Guarda de feed obsoleto. También ajustable en vivo |
+| `MAX_VENUE_DEVIATION_PCT` | `0.01` | Guarda de **feed dislocado**: descarta un venue que se desvía más de esto de la mediana multi-venue (evita arbitrajes fantasma por feeds lentos/atascados). `0` la desactiva. También ajustable en vivo |
 | `REBALANCE_THRESHOLD_BTC` | `0.5` | Desviación de inventario que dispara un rebalanceo (cobra withdrawal fee amortizado). También ajustable en vivo |
 | `EV_TAU_MS` | `400` | Constante de decaimiento por latencia del modelo de supervivencia |
 | `EV_ADVERSE_BPS` | `5` | Costo de selección adversa (bps) si el edge colapsa |

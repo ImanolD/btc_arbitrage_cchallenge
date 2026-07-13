@@ -130,6 +130,42 @@ Formato: **Contexto → Decisión → Alternativa descartada → Consecuencia.**
   tipos; los tests corren con `bun test`. Los archivos de test viven **fuera de
   `src/`** para no contaminar el `tsc` de producción con `bun:test`.
 
+## 9. Guarda de feed dislocado por consenso (no por confianza en cada feed)
+
+- **Contexto.** En un host con throttling (p. ej. free tier), el event loop se
+  congela y luego procesa un **backlog** de mensajes de WS. Cada uno se sella con
+  una hora de recepción **fresca** aunque su precio sea viejo, así que el guard de
+  antigüedad (basado en `receivedAt`) no lo detecta. Ese venue queda **dislocado**
+  del mercado y fabrica "arbitrajes" fantasma — el sistema parece "imprimir"
+  dinero (lo vimos en el deploy durante la evaluación).
+- **Decisión.** No confiar en cada feed aislado: calcular en cada tick la
+  **mediana de los mids** de los venues frescos (quórum ≥3) y **descartar toda
+  ruta cuyo venue se desvíe más de `maxVenueDeviationPct`** (1% por defecto) del
+  consenso. El arbitraje real es de puntos básicos; una desviación >1% es
+  esencialmente siempre un feed malo, no una oportunidad.
+- **Alternativa descartada.** Endurecer el guard de spread por par
+  (`maxSaneSpreadPct`). Es un instrumento romo: no distingue un par legítimamente
+  ancho de un venue dislocado, y no captura la dislocación **simétrica** vs el
+  resto. El consenso es **independiente del reloj**, así que sobrevive a los stalls
+  del event loop. El venue `demo` (dislocado a propósito) queda exento.
+- **Consecuencia.** El sistema se mantiene honesto bajo condiciones adversas de
+  red en vez de disparar trades fantasma. El umbral es live-tunable (se suma al
+  criterio de parametrización). Cubierto por `riskManager.test.ts`.
+
+## 10. Error boundary de UI (nunca una pantalla en negro)
+
+- **Contexto.** Sin red de seguridad, un error de render (p. ej. un desfase de
+  versión servidor/cliente durante un redeploy parcial) desmonta todo el árbol y
+  deja una pantalla en negro — el peor primer impacto posible para un juez.
+- **Decisión.** Envolver la app en un **error boundary** con mensaje recuperable +
+  recarga, y hacer que los componentes nuevos degraden con gracia ante payloads de
+  una forma inesperada (el blotter tolera trades sin estado por pata).
+- **Alternativa descartada.** Confiar en que servidor y cliente siempre estén en la
+  misma versión. Los deploys de web (Vercel) y servidor (Railway) son
+  independientes y no atómicos.
+- **Consecuencia.** Una ventana de deploy inconsistente degrada con gracia en vez
+  de romper por completo.
+
 ---
 
 ## Verificación (tests + CI)
@@ -143,7 +179,11 @@ la **lógica pura** (sin red), en `apps/server/tests/`:
   pata rechazada → residual → vuelta a plano (BTC conservado), doble rechazo → sin
   trade, haircut de liquidez.
 - `portfolio.test.ts` — (s,S): sin transferencia dentro de la banda, envío al
-  objetivo al cruzar el techo, PnL/win-rate, capacidad acotada por USD/BTC.
+  objetivo al cruzar el techo, PnL/win-rate, capacidad acotada por USD/BTC, y el
+  pronóstico de deriva (proyección tras warm-up, `null` antes).
+- `riskManager.test.ts` — guarda de feed dislocado: pasa cerca del consenso,
+  rechaza un venue dislocado, inactiva sin quórum, `demo` exento, y prioridad del
+  guard de quote obsoleta.
 
 ```bash
 bun run typecheck   # shared + server + web
