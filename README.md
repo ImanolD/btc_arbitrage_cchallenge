@@ -10,16 +10,16 @@ La **portada** funciona como *gate* de carga real: espera a que el stream de Soc
 
 ![Portada de Filobot](assets/screenshots/01-cover.png)
 
-**Terminal en vivo** — books por exchange, feed de oportunidades (bruto → neto → **EV** con veredicto `EXEC`/`SKIP`), curva de equity, blotter de fills simulados y panel de latencia p50/p95/p99. La píldora **LIVE** muestra el *uptime* real desde el arranque, y el gran contador de oportunidades *analizadas* vs. *accionables* cuenta la historia honesta.
+**Terminal en vivo** — books por exchange, feed de oportunidades filtrable (bruto → neto → **EV** con veredicto `EXEC`/`SKIP`), curva de equity, blotter de fills simulados, panel de inventario/rebalanceo **(s,S)** y latencia p50/p95/p99. La franja **"Hallazgo empírico en vivo"** resume la población completa (`N cruces analizados · neto mediano X bps · % accionables`), y los estados vacíos reencuadran el **cero honesto** como prueba de eficiencia, no como bug. La píldora **LIVE** muestra el *uptime* real desde el arranque.
 
-![Terminal de arbitraje en vivo](assets/screenshots/02-dashboard.png)
+![Terminal de arbitraje en vivo](assets/screenshots/02-dashboard2.png)
 
 <table>
 <tr>
 <td width="50%" valign="top">
-<b>Ajustes del motor</b> — conmuta <i>en vivo</i> entre decisión por <b>EV</b> y por <b>umbral de spread</b>, y afina τ de latencia, costo adverso, EV mínimo y la cadencia de Filo. Los cambios viajan por Socket.IO y se reflejan al instante en el feed.
+<b>Centro de parametrización</b> — un <b>drawer persistente</b> (no un modal que tapa la vista) con <b>31 controles en vivo</b>: presets de estrategia, decisión por <b>EV</b> vs. <b>umbral de spread</b>, fees/tamaño/guardas, e inyector de escenarios. Ajustas un parámetro y <i>ves reaccionar el feed y el P&L al instante</i>, sin cerrar nada.
 <br/><br/>
-<img src="assets/screenshots/03-settings-ev-vs-spread.png" alt="Panel de ajustes del motor: EV vs spread" />
+<img src="assets/screenshots/03-settings2.png" alt="Centro de parametrización: drawer persistente con 31 controles en vivo junto al dashboard" />
 </td>
 <td width="50%" valign="top">
 <b>Análisis estadístico</b> — calculado en el servidor sobre <i>toda</i> la población de cruces detectados desde el arranque (datos reales, no narrativa): distribución de spread bruto vs. neto y actividad barato/caro por venue.
